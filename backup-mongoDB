@@ -1,0 +1,12 @@
+#!/bin/sh
+. /etc/profile
+PASSWD="$1"
+BACKUP_DIR=/home/stuff/Archive/MongoDB
+DATE=$(date +%F)
+
+cd ${BACKUP_DIR} || { echo "Cannot find backup directory: ${BACKUP_DIR} "; exit 1; }
+
+echo "Backing MongDB to ${BACKUP_DIR}/BlitzStats.${DATE}.gz"
+sleep 2
+/usr/bin/mongodump --host tupajumi.tupanet --ssl --sslCAFile /etc/ssl/certs/tupanet_rootCA_20190929.pem --sslPEMKeyFile /home/jarno/.ssl/tupajumi_jarno_mongodb.pem  -u backup -p ${PASSWD}  --authenticationDatabase admin --db BlitzStats --gzip --archive=BlitzStats.${DATE}.gz -vv
+

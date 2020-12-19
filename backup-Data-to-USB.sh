@@ -1,0 +1,215 @@
+#!/bin/bash
+set -o nounset 		## Error if undefined variable referred (which default to "") 
+set -o errexit 		## Do not ignore failing commands
+
+ENCRYPTED_DEV=securebackup
+CHKSUM=.checksum.md5
+EXCLUDE_FILE=".exclude.rsync"
+TEMP="`mktemp  /tmp/BACKUP_USB.XXXXXX`"
+DATE=`date '+%F'`; readonly DATE
+LOG=~/backup_log_${DATE}.log
+BACKUP_DISK=/dev/sde
+BACKUP_PART=/dev/sde1
+
+################################### Subs ##############################################
+
+## Sleep 3 seconds and print "wait dots"
+do_sleep() {
+	echo -n "$1 "  | tee -a $TEMP 
+	for i in 1 2 3 ; do
+        	sleep 2s
+        	echo -n "."  | tee -a $TEMP
+	done
+	echo
+}
+
+check_backup_mount() {
+	mount | fgrep -q /mnt/backup && BACKUP_MNT="/mnt/backup" && echo "Backing up to /mnt/backup/B" && return 0
+	mount | fgrep -q /mnt/sbackup && BACKUP_MNT="/mnt/sbackup" && echo "Backing up to /mnt/sbackup/B" && return 0
+	echo "No backup disk mounted yet"
+	return 0
+}
+
+
+mount_backup_disk() {
+	if [[ -b $BACKUP_PART ]]; then 
+		if $( cryptsetup luksOpen  $BACKUP_PART $ENCRYPTED_DEV && mount /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
+			BACKUP_MNT="/mnt/sbackup"
+			echo "Backing up to /mnt/sbackup/B" 
+		elif $( mount $BACKUP_PART /mnt/backup  2>> $TEMP ); then
+			BACKUP_MNT="/mnt/backup"
+                        echo "Backing up to /mnt/backup/B"
+		fi
+	elif [[ -b $BACKUP_DISK ]]; then
+		if $( cryptsetup luksOpen $BACKUP_DISK $ENCRYPTED_DEV && mount /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
+                        BACKUP_MNT="/mnt/sbackup"
+                        echo "Backing up to /mnt/sbackup/B"
+		elif $(	mount $BACKUP_DISK /mnt/backup  2>> $TEMP ); then
+                        BACKUP_MNT="/mnt/backup"
+                        echo "Backing up to /mnt/backup/B"
+		fi
+	else
+		echo "No backup disk exists. Exiting..."
+		exit 2
+	fi
+}
+
+umount_backup() {
+	sync
+	do_sleep "Unmounting now"
+
+	umount $BACKUP_MNT && echo "  OK"  | tee -a $TEMP
+
+	if [[ -b /dev/mapper/$ENCRYPTED_DEV ]]; then
+		echo -n "Doing luksSuspend ... " | tee -a $TEMP
+		cryptsetup luksSuspend $ENCRYPTED_DEV && echo "OK" || echo "FAILED!!"
+  		echo -n "Doing luksClose  ... " | tee -a $TEMP
+		cryptsetup luksClose $ENCRYPTED_DEV  && echo "OK" || echo "FAILED!!"
+	fi
+}
+
+print_stamp() { 
+	local STAMP=$(echo $1 | tr / _ | sed 's/^_//')
+
+	if [[ -f ${BACKUP_DIR}/${STAMP}.txt ]]; then
+		echo "Last backup: $(cat ${BACKUP_DIR}/${STAMP}.txt)" | tee -a $TEMP
+	fi
+}
+touch_stamp() {
+	local STAMP=$(echo $1 | tr / _ | sed 's/^_//')
+
+	date > ${BACKUP_DIR}/${STAMP}.txt
+}
+
+do_btrfs_snapshot() {
+	local SUBVOL="$1"
+	local SNAPSHOT_BASE="${BACKUP_ROOT}/snapshots/$(basename ${SUBVOL})"
+	echo "Creating a snapshot of $SUBVOL"
+	if [[ -d ${SNAPSHOT_BASE} ]]; then
+		SNAPSHOT_NAME="@snapshot_$(basename ${SUBVOL})_${DATE}"
+		if [[ -d ${SNAPSHOT_BASE}/${SNAPSHOT_NAME} ]]; then
+			TIMENOW=$(date '+%T')
+			mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIMENOW}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed" 
+		fi
+
+		btrfs subvolume snapshot ${SUBVOL} "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
+	else
+		echo "Cannot find snapshot base dir: ${SNAPSHOT_BASE}" > /dev/stderr
+		exit 5
+	fi 
+}
+
+# Check if filesystem is btrfs
+is_btrfs() {
+	mount | fgrep  "${BACKUP_MNT}" | fgrep -q  btrfs 
+}
+
+# find and verify CHKSUM files
+# DOES NOT WORK IS SPACES IN DIR NAMES
+verify_checksums() {
+	local DIR="$1"
+	echo "------  $DIR CHECKSUMS ------------------" | tee -a $TEMP
+	for chksum in $(find "$DIR" -name ${CHKSUM} -print0); do
+		echo $chksum | tee -a $TEMP
+		exit
+		pushd "$(dirname "$chksum")"
+		cfv --progress no -f $CHKSUM | tee -a $TEMP
+		popd
+	done
+	echo "------  $DIR CHECKSUMS END --------------" | tee -a $TEMP
+}
+
+
+do_backup() {
+	local SRC="$1"
+	local DST="${2:-$SRC}"
+	local DST_FULL="${BACKUP_DIR}/${DST}"
+
+	echo "SRC: $SRC"  | tee -a $TEMP
+	echo "DST: ${DST_FULL}"  | tee -a $TEMP
+
+	LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE} 
+
+	echo "--------------------------------------------------------"	 | tee -a $TEMP
+	if [[ -d "${DST_FULL}" ]]; then
+		echo "backing up $SRC to ${DST_FULL}"  | tee -a $TEMP
+		print_stamp "$SRC"
+		EXCLUDE=""
+		if [[ -f "${SRC}/${EXCLUDE_FILE}" ]]; then
+			EXCLUDE="--exclude-from=${SRC}/${EXCLUDE_FILE}"
+			echo $EXCLUDE
+		fi
+		do_sleep "Starting backing up $SRC"
+
+		if  $(is_btrfs) ; then 
+			do_btrfs_snapshot "${DST_FULL}"
+			## 2014-10-18: --progress remoevd to make logs more readable
+			nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"  | tee -a $TEMP
+			touch_stamp "$SRC"
+			sync 
+		else
+			RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${DATE}/${DST}"
+			## 2014-10-18: --progress remoevd to make logs more readable
+                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"   | tee -a $TEMP
+                        touch_stamp "$SRC"
+                        sync
+		fi
+# BROKEN		verify_checksums "${DST_FULL}"
+	else
+		echo "Cannot find ${DST_FULL}. Directory does not exist."  | tee -a $TEMP
+	fi
+	echo "--------------------------------------------------------"	 | tee -a $TEMP
+}
+
+check_disk_space() {
+	DU=$(df -h |fgrep $BACKUP_MNT | cut -d % -f 1 | egrep -o '[[:digit:]]+$')
+        echo "${DU}% backup disk in use"  | tee -a $TEMP > /dev/sdterr
+        echo ""  | tee -a $TEMP > /dev/stderr
+
+        if  (( $DU > 90 )); then
+                echo "Disk is too full, pls create space" | tee -a $TEMP > /dev/stderr
+		exit 3
+        fi
+}
+
+######################## MAIN() #################################################
+#################################################################################
+
+BACKUP_MNT=NONE
+check_backup_mount
+if [[ $BACKUP_MNT == "NONE" ]]; then
+	mount_backup_disk
+fi
+
+if [[ $BACKUP_MNT == "NONE" ]]; then
+	echo "ERROR. No backup media mounted into /mnt/backup OR /mnt/sbackup" | tee -a $TEMP
+	exit 1
+fi
+
+BACKUP_ROOT="$BACKUP_MNT/B"
+BACKUP_DIR="$BACKUP_ROOT/current"
+
+if [[ ! -d $BACKUP_DIR ]]; then
+	echo "Backup directory hierarchy changed. Please update the backup roots under $BACKUP_DIR" > /dev/stderr
+	exit 1
+fi
+
+echo "-------------------------------------------------------------" | tee -a $TEMP
+echo "|  Backup to EXTERNAL HDD                                   |" | tee -a $TEMP
+echo "-------------------------------------------------------------" | tee -a $TEMP
+
+######################## What to backup #########################################
+
+do_backup /home/jarno/Docs Docs
+do_backup /home/jarno/backup/OneDrive OneDrive
+do_backup /home/stuff/Pics Pics
+do_backup /home/stuff/Flac Flac
+do_backup /home/backup/localhost/system system
+
+umount_backup
+
+###################### MAIL LOG ########################
+#echo "Mailing log ..." | tee -a $TEMP
+#mailx root@localhost -s "$(hostname): USB Backup LOG $(date +%Y-%m-%d)"  < $TEMP
+cp $TEMP $LOG
+rm -f $TEMP
