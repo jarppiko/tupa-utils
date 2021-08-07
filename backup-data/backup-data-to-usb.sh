@@ -12,9 +12,9 @@ BACKUP_DISK=/dev/sde
 BACKUP_PART=/dev/sde1
 TUPA_UTILS="/usr/local/src/tupa-utils"
 
-#################################################################################
+######################## EDIT ###################################################
 
-source ${TUPA_UTILS}/backup-data.lib
+source ${TUPA_UTILS}/backup-data/backup-data.lib
 
 ######################## MAIN() #################################################
 
@@ -43,11 +43,9 @@ echo "-------------------------------------------------------------" | tee -a $T
 
 ######################## What to backup #########################################
 
-do_backup /home/jarno/Docs Docs
-do_backup /home/jarno/backup/OneDrive OneDrive
-do_backup /home/stuff/Pics Pics
-do_backup /home/stuff/Flac Flac
-do_backup /home/backup/localhost/system system
+# do_backup /home/jarno/Docs Docs
+# do_backup /home/jarno/backup/OneDrive OneDrive
+# do_backup /home/stuff/Pics Pics
 
 umount_backup
 
