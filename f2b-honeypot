@@ -1,0 +1,70 @@
+#!/bin/bash
+
+HONEYPOT_LOG='/var/log/nft.log'
+PTR_HONEYPOT='NFT honeypot:'
+F2B_JAIL="sshd"
+
+error() {
+        MSG=$1
+        echo "ERROR: ${MSG}"
+        exit 1
+}
+
+help() {
+	echo "Usage: $(basename $0) [-r]"
+	echo -e "\t-h\tDisplay help"
+	echo -e "\t-r\tReload all IPs from log"
+	echo -e "\t-m\tMonitor IPs from log"
+	exit 0
+}
+
+monitor_log() {
+	tail -f ${HONEYPOT_LOG} | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
+}
+
+reload_log() {
+	cat ${HONEYPOT_LOG} | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
+}
+
+if (( $# == 0 )); then
+    help
+fi
+
+
+DO_RELOAD=0
+DO_MONITOR=0
+
+while getopts 'rhm' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    m)
+         DO_MONITOR=1
+         ;;
+    r)
+         DO_RELOAD=1
+         ;;
+    *)
+        echo "Invalid argument received."
+        help
+        exit 1
+        return
+        ;;
+    esac
+done
+
+if [ ! -f ${HONEYPOT_LOG} ]; then
+	echo "Honeypot log (${HONEYPOT_LOG}) not found"
+	exit 1
+fi
+
+
+if [ $DO_RELOAD -eq 1 ]; then
+	reload_log
+fi 
+
+if [ $DO_MONITOR -eq 1 ]; then
+	monitor_log
+fi
