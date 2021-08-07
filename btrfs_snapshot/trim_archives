@@ -196,8 +196,8 @@ case $param in
     ;;
 
     *)
-            # Target archive template
-	targets=("${targets[@]}" "${param}")
+       # Target archive template
+	targets+=("${param}")
     ;;
 esac
 done
