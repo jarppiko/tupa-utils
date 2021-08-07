@@ -1,0 +1,4 @@
+## tupa-utils config
+
+# root for backups and snapshots
+BACKUP_ROOT=/home/back/localhost
