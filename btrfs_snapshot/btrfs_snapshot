@@ -25,6 +25,7 @@ do
 	case "$option" in
 		b)
 			BACKUP_ROOT="${OPTARG}"
+		;;
 	    	c)
 			if [ -f "${OPTARG}" ]; then
 				while IFS= read -r DIR; do
