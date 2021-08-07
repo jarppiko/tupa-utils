@@ -1,0 +1,231 @@
+#!/bin/bash
+
+## Script for trimming / deleting old backup archives based on day rules. Depends on directory naming. Expects format "nameYYYY-MM-DD[ymwd]"
+
+
+usage() {
+	echo "$(basename $0) is a program to trim archives named with paradigm YYYY-MM-DD[ymwd]"
+	echo "Usage: $(basename $0) [OPTIONS] FILENAME_STUB"
+	echo -e "\t-y|--year=N\tSet yearly archives to keep"
+	echo -e "\t-m|--month=N\tSet monthly archives to keep"
+	echo -e "\t-w|--week=N\tSet weekly archives to keep"
+	echo -e "\t-d|--day=N\tSet daily archives to keep"
+	echo -e "\t-H|--hour=N\tSet hourly archives to keep"
+	echo -e "\t-b|--btrfs\tDelete Btrfs snapshots (default is rm -R for directories)"
+	echo -e "\t-f|--force\tDo actual trimming operation. Default is dry-run."
+	echo -e "\t-h|--help\tSee usage instructions"
+}
+
+debug() {
+    if [[ -n $DEBUG ]]; then
+        echo "DEBUG: $*"
+    fi
+}
+
+find_trim_list() {
+    local TARGET="$1"
+    local MODE="$2"
+    local KEEP="$3"
+    local DIR=$(dirname "$TARGET")
+    local BASE=$(basename "$TARGET")
+    debug "DIR: $DIR"
+    debug "BASE: $BASE"
+    debug "MODE: $MODE"
+    debug "KEEP: $KEEP"
+
+    declare -a trim_targets
+    i=0
+    while IFS= read -r -d '' file; do
+        trim_targets[$i]="$file"
+        let i++
+    done < <(find "${DIR}"  -maxdepth 1 -regextype posix-egrep -regex "${TARGET}.*?[0-9_:-]{8,}${MODE}.*" -print0 | sort -rz)
+
+    if [ "${KEEP}" -ge 0 ]; then
+
+         debug "KEEP: $KEEP"
+         debug "#trim_targets: ${#trim_targets[@]}"
+
+         for ((i=$((${#trim_targets[@]}-1));i>=${KEEP};i--)); do
+             debug "Array read: $i |${trim_targets[$i]}|"
+             trim_list[${#trim_list[@]}]="${trim_targets[$i]}"
+         done
+    fi
+}
+
+trim_list_dry_run() {
+    local TARGET="$1"
+    local DIR=$(dirname "$TARGET")
+    local BASE=$(basename "$TARGET")
+    debug "DIR: $DIR"
+    debug "BASE: $BASE"
+    debug "BTRFS $BTRFS"
+
+    echo "DRY run. Use '-f' to actually trim the archives."
+    debug "#trim_list: ${#trim_list[@]}"
+
+    if [ "${#trim_list[@]}" -gt "0" ]; then
+        echo "There are ${#trim_list[@]} archive(s) requiring trimmming."
+        sleep 1s
+
+        if [[ -n ${BTRFS} ]]; then
+            for t in "${trim_list[@]}"; do
+               echo "btrfs subvolume delete $t"
+            done
+        else
+            for t in "${trim_list[@]}"; do
+               echo "rm -R $t"
+            done
+       fi
+    else
+         echo "There are no archive(s) requiring trimmming."
+    fi
+}
+
+## Actually trim the archives
+trim_list_run() {
+    local TARGET="$1"
+    local DIR=$(dirname "$TARGET")
+    local BASE=$(basename "$TARGET")
+    debug "DIR: $DIR"
+    debug "BASE: $BASE"
+    debug "BTRFS $BTRFS"
+
+    if [ "${#trim_list[@]}" -gt "0" ]; then
+        echo "Trimming ${#trim_list[@]} archives and DELETING DATA. Press Ctrl+C to cancel."
+        sleep 3s
+
+        if [[ -n ${BTRFS} ]]; then
+            for t in "${trim_list[@]}"; do
+                btrfs subvolume delete "$t"
+            done
+        else
+            for t in "${trim_list[@]}"; do
+               echo "rm -R $t"
+               rm -R "$t"
+            done
+       fi
+    else
+       echo "There are no archive(s) requiring trimmming."
+    fi
+
+}
+
+
+## Check that inputs are integers
+check_inputs() {
+
+    if ! [  "$YEAR" -eq "$YEAR" ]; then
+        echo "If set, year (-y|--year) must be positive integer"
+	usage
+        exit 1
+    fi
+    if ! [ "$MONTH" -eq  "$MONTH" ]; then
+        echo "If set, month (-m|--month) must be positive integer"
+	usage
+        exit 1
+    fi
+    if ! [ "$WEEK" -eq "$WEEK" ]; then
+        echo "If set, week (-w|--week) must be positive integer"
+	usage
+        exit 1
+    fi
+    if ! [ "$DAY" -eq "$DAY" ]; then
+        echo "If set, day (-d|--day) must be positive integer"
+	usage
+        exit 1
+    fi
+    if ! [ "$HOUR" -eq "$HOUR" ]; then
+        echo "If set, hour (-H|--hour) must be positive integer"
+	usage
+        exit 1
+    fi
+}
+
+###############  MAIN ########################
+
+## read command line arguments
+
+targets=()
+YEAR="-1"   # i.e. do not trim yearly archives
+MONTH="-1"
+WEEK="-1"
+DAY="-1"
+HOUR="-1"
+HELP=""
+FORCE=""
+DEBUG=""
+
+for param in "$@"
+do
+case $param in
+    -y=*|--year=*)
+    YEAR="${param#*=}"
+    shift # past argument=value
+    ;;
+    -m=*|--month=*)
+    MONTH="${param#*=}"
+    shift # past argument=value
+    ;;
+    -w=*|--week=*)
+    WEEK="${param#*=}"
+    shift # past argument=value
+    ;;
+    -d=*|--day=*)
+    DAY="${param#*=}"
+    shift # 
+    ;;
+    -H=*|--hour=*)
+    HOUR="${param#*=}"
+    shift # 
+    ;;
+    -h|--help)
+    HELP=YES
+    shift # past argument with no value
+    ;;
+    -f|--force)
+    FORCE=YES # do actual trim, not just show what wold be trimmed
+    shift # past argument with no value
+    ;;
+    -b|--btrfs)
+    BTRFS=YES # remove BTRFS snapshots instead of trimming directories
+    shift # past argument with no value
+    ;;
+    --debug)
+    DEBUG=YES # set DEBUG mode 
+    shift # past argument with no value
+    ;;
+
+    *)
+            # Target archive template
+	targets=("${targets[@]}" "${param}")
+    ;;
+esac
+done
+
+# test if $HELP has been defined
+if [[  -n ${HELP} ]] ; then 
+	usage
+fi
+
+## Execute trim to targets
+for TARGET in "${targets[@]}"; do 
+
+    debug "TARGET: |${TARGET}|"
+    unset trim_list
+    trim_list=()
+
+    find_trim_list "${TARGET}" "y" "${YEAR}"
+    find_trim_list "${TARGET}" "m" "${MONTH}"
+    find_trim_list "${TARGET}" "w" "${WEEK}"
+    find_trim_list "${TARGET}" "d" "${DAY}"
+    find_trim_list "${TARGET}" "h" "${HOUR}"
+
+    if [[ -z ${FORCE} ]]; then
+        debug "Dry run"
+        trim_list_dry_run "${TARGET}"
+    else
+        debug "Run trim"
+        trim_list_run "${TARGET}"
+    fi
+
+done
