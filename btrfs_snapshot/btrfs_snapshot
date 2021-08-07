@@ -5,15 +5,17 @@
 # 2014-10-18: changed snapshots to readonly (-r option)
 # 2021-08-07: rewrite 
 
-CONFIG_FILE="~/.config/tupa-utils"
+CONFIG_FILE="${HOME}/.config/tupa-utils"
 
 BACKUP_ROOT=/home/backup/localhost
+SILENT=""
 
 if [ -f "${CONFIG_FILE}" ]; then
-	.  "${CONFIG_FILE}"
+	. "${CONFIG_FILE}"
 fi
 
 declare -a DIRS
+
 DATE=`date '+%F'`
 
 # man date:
@@ -27,7 +29,6 @@ if [ $(date --date $DATE +%-u) -eq 7 ]; then POSTFIX="w"; fi
 if [ $(date --date $DATE +%-d) -eq 1 ]; then POSTFIX="m"; fi
 if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
 
-SILENT=""
 
 help() {
 
@@ -38,11 +39,14 @@ echo -e "\t-c FILE\tRead configuration from FILE"
 exit 0
 }
 
-while getopts ':hb:c:' option
+while getopts ':hb:c:s' option
 do
 	case "$option" in
 		h)
 			help
+		;;
+		s)
+			SILENT="Y"
 		;;
 		b)
 			BACKUP_ROOT="${OPTARG}"
@@ -54,14 +58,13 @@ do
 				done < "${OPTARG}"
 			fi
 		;;
-	esac 
+	esac
 done
 
 # Read rest of the params
 shift $(expr $OPTIND - 1 )
 
 while test $# -gt 0; do
-	echo "ARG: $1"
 	if [ -d "${1}" ]; then 
 		DIRS+=( "${1}" )
 	fi
@@ -70,6 +73,8 @@ done
 
 for dir in ${DIRS}; do
 	NAME=`basename "$dir"`
-	echo "Snapshotting ${dir}"
+	if [ -n "${SILENT}" ]; then
+		echo "Snapshotting ${dir}"
+	fi
 	btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
 done
