@@ -64,10 +64,10 @@ trim_list_dry_run() {
     debug "#trim_list: ${#trim_list[@]}"
 
     if [ "${#trim_list[@]}" -gt "0" ]; then
-        echo "There are ${#trim_list[@]} archive(s) requiring trimmming."
+        echo "${DIR}: ${#trim_list[@]} archive(s) require trimmming"
         sleep 1s
 
-        if [[ -n ${BTRFS} ]]; then
+        if [ -n ${BTRFS} ]; then
             for t in "${trim_list[@]}"; do
                echo "btrfs subvolume delete $t"
             done
@@ -77,7 +77,7 @@ trim_list_dry_run() {
             done
        fi
     else
-         echo "There are no archive(s) requiring trimmming."
+         echo "${DIR}: No archives requiring trimming"
     fi
 }
 
@@ -91,10 +91,10 @@ trim_list_run() {
     debug "BTRFS $BTRFS"
 
     if [ "${#trim_list[@]}" -gt "0" ]; then
-        echo "Trimming ${#trim_list[@]} archives and DELETING DATA. Press Ctrl+C to cancel."
+        echo "${DIR}: Trimming ${#trim_list[@]} archives and DELETING DATA. Press Ctrl+C to cancel."
         sleep 3s
 
-        if [[ -n ${BTRFS} ]]; then
+        if [ -n ${BTRFS} ]; then
             for t in "${trim_list[@]}"; do
                 btrfs subvolume delete "$t"
             done
@@ -105,7 +105,7 @@ trim_list_run() {
             done
        fi
     else
-       echo "There are no archive(s) requiring trimmming."
+       echo "${DIR}: There are no archive(s) requiring trimmming."
     fi
 
 }
