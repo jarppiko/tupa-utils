@@ -1,0 +1,27 @@
+#!/bin/sh
+
+TRIMCMD="/usr/local/sbin/trim_archives"
+
+#Docs
+#${TRIMCMD} -b -d=90 -w=26 -m=15 -y=3 -f /home/backup/localhost/Dropbox/@snapshot
+${TRIMCMD} -b -d=45 -w=16 -m=18 -y=3 -H=36 -f /home/backup/localhost/jarno/@snapshot
+
+## Media
+${TRIMCMD} -b -d=45 -w=16 -m=18 -y=5 -f /home/backup/localhost/Pics/@snapshot
+${TRIMCMD} -b -d=21 -w=16 -m=12 -y=3 -f /home/backup/localhost/Flac/@snapshot
+
+## SYSTEM
+${TRIMCMD} -b -d=7 -w=6 -m=0 -y=0 -f   /var/backups/system/@snapshot
+
+## MONGODB
+${TRIMCMD} -b -d=12 -w=8 -m=6 -y=0 -f   /home/backup/localhost/mongodb/@snapshot
+
+## Archive
+${TRIMCMD} -b -d=10 -w=8 -m=6 -y=2 -f   /home/backup/localhost/Archive/@snapshot
+
+## Development 
+${TRIMCMD} -b -d=14 -w=8 -m=4 -y=0 -H=48 -f   /home/backup/localhost/Development/@snapshot_Development
+
+## FAIJA
+${TRIMCMD} -b -d=21 -w=15 -m=18 -y=3 -f   /home/backup/keijo/0.snapshots/work/@work_
+

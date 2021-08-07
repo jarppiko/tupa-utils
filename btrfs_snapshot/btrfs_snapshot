@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR  (e.g. /home/backup/localhost/Flac)
+# UPDATE 2014-10-18: changed snapshots to readonly (-r option)
+
+BACKUP_ROOT=/home/backup/localhost
+DIRS=()
+DATE=`date '+%F'`
+
+# man date:
+#	%u     day of week (1..7); 1 is Monday
+#	%d     day of month (e.g., 01)
+#	%j     day of year (001..366)
+#	%-     removes padding (spaces or zeroes)
+
+POSTFIX="d"
+if [ $(date --date $DATE +%-u) -eq 7 ]; then POSTFIX="w"; fi
+if [ $(date --date $DATE +%-d) -eq 1 ]; then POSTFIX="m"; fi
+if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
+
+SILENT=""
+
+while getopts ':b:c:' option
+do
+	case "$option" in
+		b)
+			BACKUP_ROOT="${OPTARG}"
+	    	c)
+			if [ -f "${OPTARG}" ]; then
+				while IFS= read -r DIR; do
+					DIRS+=( "${DIR}" )
+				done < "${OPTARG}"
+			fi
+		;;
+		*)
+			if [ -d "${OPTARG}" ]; then 
+				DIRS+=( "${OPTARG}" )
+			fi
+		;;
+	esac 
+done
+
+for dir in ${DIRS}; do
+	NAME=`basename $dir`
+	btrfs subvolume snapshot -r $dir "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+done
+
