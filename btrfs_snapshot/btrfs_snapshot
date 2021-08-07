@@ -1,10 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 # Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR  (e.g. /home/backup/localhost/Flac)
 # UPDATE 2014-10-18: changed snapshots to readonly (-r option)
 
 BACKUP_ROOT=/home/backup/localhost
-DIRS=()
+declare -a DIRS
 DATE=`date '+%F'`
 
 # man date:
@@ -20,9 +20,21 @@ if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
 
 SILENT=""
 
-while getopts ':b:c:' option
+help() {
+
+echo "Usage: $(basename $0) [-h] [-c CONFGIG_FILE] [DIR DIR1 ...]"
+echo -e "\t-h\tDisplay help"
+echo -e "\t-c FILE\tRead configuration from FILE"
+
+exit 0
+}
+
+while getopts ':hb:c:' option
 do
 	case "$option" in
+		h)
+			help
+		;;
 		b)
 			BACKUP_ROOT="${OPTARG}"
 		;;
@@ -33,16 +45,22 @@ do
 				done < "${OPTARG}"
 			fi
 		;;
-		*)
-			if [ -d "${OPTARG}" ]; then 
-				DIRS+=( "${OPTARG}" )
-			fi
-		;;
 	esac 
 done
 
-for dir in ${DIRS}; do
-	NAME=`basename $dir`
-	btrfs subvolume snapshot -r $dir "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+# Read rest of the params
+shift $(expr $OPTIND - 1 )
+
+while test $# -gt 0; do
+	echo "ARG: $1"
+	if [ -d "${1}" ]; then 
+		DIRS+=( "${1}" )
+	fi
+	shift
 done
 
+for dir in ${DIRS}; do
+	NAME=`basename "$dir"`
+	echo "Snapshotting ${dir}"
+	btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+done
