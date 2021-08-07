@@ -24,11 +24,7 @@ DATE=`date '+%F'`
 #	%j     day of year (001..366)
 #	%-     removes padding (spaces or zeroes)
 
-POSTFIX="d"
-if [ $(date --date $DATE +%-u) -eq 7 ]; then POSTFIX="w"; fi
-if [ $(date --date $DATE +%-d) -eq 1 ]; then POSTFIX="m"; fi
-if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
-
+POSTFIX=""
 
 help() {
 
@@ -39,7 +35,7 @@ echo -e "\t-c FILE\tRead configuration from FILE"
 exit 0
 }
 
-while getopts ':hb:c:s' option
+while getopts ':hb:c:p:s' option
 do
 	case "$option" in
 		h)
@@ -50,6 +46,20 @@ do
 		;;
 		b)
 			BACKUP_ROOT="${OPTARG}"
+		;;
+		p)
+			case "${OPTARG}" in
+				y) POSTFIX="y";;
+				m) POSTFIX="m";;
+				q) POSTFIX="q";;
+				w) POSTFIX="w";;
+				d) POSTFIX="d";;
+				h)
+				  HOUR=$(date '+%H%M')
+				  POSTFIX="_${HOUR}h" 
+				;;
+				*) echo "invalid -p option: ${OPTARG}"
+			esac
 		;;
 	    	c)
 			if [ -f "${OPTARG}" ]; then
@@ -70,6 +80,13 @@ while test $# -gt 0; do
 	fi
 	shift
 done
+
+if [ -z ${POSTFIX} ]; then 
+	POSTFIX="d"
+	if [ $(date --date $DATE +%-u) -eq 7 ]; then POSTFIX="w"; fi
+	if [ $(date --date $DATE +%-d) -eq 1 ]; then POSTFIX="m"; fi
+	if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
+fi
 
 for dir in ${DIRS}; do
 	NAME=`basename "$dir"`
