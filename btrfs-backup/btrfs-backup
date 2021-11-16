@@ -1,0 +1,71 @@
+#!/bin/sh
+
+# backup btrfs subvol to another btrfs filesystem 
+
+OLD="old"
+NEW="current"
+
+SRC="$1"
+DST_DIR="$2"
+BASENAME="$(basename ${SRC})"
+
+
+error() {
+	MSG=$1
+	echo "${MSG}"
+	exit 1
+}
+get_rand() {
+	cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1 
+}
+
+[ -d "${SRC}_${OLD}" ] 	|| { error "Old source subvolume ${SRC}_${OLD} not found"; } 
+[ -d "${SRC}_${NEW}" ] 	&& { echo "SRC: ${SRC}"; }	  || { error "New source subvolume ${SRC}_${NEW} not found"; } 
+[ -d "${DST_DIR}" ]  	&& { echo "DST_DIR: ${DST_DIR}";} || { error "Destination directory ${DST_DIR} not found"; } 
+
+sync
+
+FAILED="false"
+
+echo "Trying to make incremental snapshot... pausing for 5 sec"
+sleep 5
+
+ionice -c 3 nice -10 btrfs send -p "${SRC}_${OLD}" "${SRC}_${NEW}" | ionice -c 3 nice -10 btrfs receive "${DST_DIR}" || FAILED="true"
+
+BACKUP_NEW="${DST_DIR}/${BASENAME}_${NEW}"
+
+if [ ${FAILED} = "true" ]; then
+	echo "incremental backup failed"
+	if [ -d "$BACKUP_NEW" ]; then
+		echo "Removing failed backup: ${BACKUP_NEW}"
+		btrfs subvolume delete "${BACKUP_NEW}"
+	fi
+	FAILED="false"
+	ionice -c 3 nice -10 btrfs send "${SRC}_${NEW}" | ionice -c 3 nice -10 btrfs receive "${DST_DIR}"  && echo "Full backup failed" || FAILED="true"
+else
+	echo "Incremental backup OK"
+fi
+
+if [ ${FAILED} = "true" ]; then
+	error "BTRFS send-receive failed"
+fi
+
+## rename target subvolume
+DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
+
+POSTFIX="d"
+if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
+if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
+if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
+
+BACKUP_TARGET="${DST_DIR}/${BASENAME}_${DATE}${POSTFIX}"
+
+if [ -d "${BACKUP_TARGET}" ]; then
+ 	echo "Old snapshot exists already at: ${BACKUP_TARGET}. Adding prefix.." 
+	BACKUP_TARGET="${BACKUP_TARGET}_$(get_rand)"
+fi
+## Rename the snapshot
+mv -i "${BACKUP_NEW}" "${BACKUP_TARGET}" || error "Renaming new subvolume failed ${BACKUP_NEW}"
+
+
+
