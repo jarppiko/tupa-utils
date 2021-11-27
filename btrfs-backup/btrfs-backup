@@ -5,6 +5,8 @@
 ## Version 2.0 specs
 # - user getopts()
 # - separate params for snaphot, old snapshot, backup dir, renaming, date postfix
+#
+# v2.0: syntax OK and tests passed
 
 ## Functions
 
@@ -155,7 +157,7 @@ else
 	error "Source subvolume not found: ${SRC}"
 fi
 ## Test for -o $OLD exists
-if [ -n "${OLD}" ] && [ -d "${OLD}" ]; then
+if [ -n "${OLD}" ] && [ ! -d "${OLD}" ]; then
 	error  "Old source subvolume -o defined, but ${OLD} not found"
 fi
 if [ -d "${DST_DIR}" ]; then
@@ -195,7 +197,7 @@ if [ -z "${FAILED}" ]; then
 	fi
 	if [ -n "${ADD_TIME_SFX}" ]; then
 		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f 2 | tr -d : )
-		SFX="${SFX}${TIME}"
+		SFX="${SFX}_${TIME}"
 	fi
 
 	if [ -n "${SFX}" ]; then
