@@ -58,15 +58,31 @@ do_backup_inc() {
 	ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" 
 }
 
+get_date_sfx() {
+	if (( $# != 1 )); then
+                help
+        fi
+        DATE="$0"
+
+	POSTFIX="d"
+	if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
+	if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
+	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
+
+	echo "${DATE}${POSTFIX}"
+}
+
+
 
 ## Params
 unset OLD
 unset DO_HELP
 unset AUTO_RETRY
 unset REMOVE
+unset SFX
 ADD_DATE_SFX=0
 ADD_TIME_SFX=0
-SFX=""
+
 
 if (( $# < 2 )); then
     help
@@ -150,48 +166,28 @@ fi
 
 if [ -z ${FAILED} ]; then
 	BACKUP_NEW="${DST_DIR}/${BASENAME}"
+	if [ ! -z ${ADD_DATE_SFX}]; then
+		[ -z ${SFX} ] && SFX="_"
+		DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
+		SFX="${SFX}$(get_date_sfx ${DATE})"
+	fi
+	if [ ! -z ${ADD_TIME_SFX}]; then
+		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -2 | tr -d :)
+		SFX="${SFX}$(TIME}"
+	fi
 
-
+	if [ ! -z ${SFX} ]; then
+		echo "Renaming snapshot"
+		BACKUP_TARGET="${BACKUP_NEW}${SFX}"
+		if [ -d "${BACKUP_TARGET}" ]; then
+		        echo "Old snapshot exists: ${BACKUP_TARGET}. Adding prefix..."
+		        BACKUP_TARGET="${BACKUP_TARGET}_$(get_rand)"
+		fi
+		mv -v "${BACKUP_NEW}" "${BACKUP_TARGET}" || error "Renaming new subvolume failed ${BACKUP_NEW}"
+	fi
 else
 	error "btrfs backup FAILED"
 fi
 
 #### END
-
-
-
-if [ ! -z ${OLD+x} -a ! -z ${FAILED+x} ]; then
-	echo "Incremental backup failed"
-	if [ -d "$BACKUP_NEW" ]; then
-		echo "Removing failed backup: ${BACKUP_NEW}"
-		btrfs subvolume delete "${BACKUP_NEW}"
-	fi
-	FAILED="false"
-	ionice -c 3 nice -10 btrfs send "${SRC}_${NEW}" | ionice -c 3 nice -10 btrfs receive "${DST_DIR}"  && echo "Full backup failed" || FAILED="true"
-else
-	echo "Incremental backup OK"
-fi
-
-if [ ${FAILED} = "true" ]; then
-	error "BTRFS send-receive failed"
-fi
-
-## rename target subvolume
-DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
-
-POSTFIX="d"
-if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
-if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
-if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
-
-BACKUP_TARGET="${DST_DIR}/${BASENAME}_${DATE}${POSTFIX}"
-
-if [ -d "${BACKUP_TARGET}" ]; then
- 	echo "Old snapshot exists already at: ${BACKUP_TARGET}. Adding prefix.." 
-	BACKUP_TARGET="${BACKUP_TARGET}_$(get_rand)"
-fi
-## Rename the snapshot
-mv -i "${BACKUP_NEW}" "${BACKUP_TARGET}" || error "Renaming new subvolume failed ${BACKUP_NEW}"
-
-
 
