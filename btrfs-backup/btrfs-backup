@@ -41,7 +41,7 @@ do_pause() {
 
 do_backup_full() {
 	if (( $# != 2 )); then
-    		help
+    		error "do_backup_full(): incorrect number of params != 2 given"
 	fi
 	SRC="$0"
 	DST="$1"
@@ -50,7 +50,7 @@ do_backup_full() {
 
 do_backup_inc() {
 	if (( $# != 3 )); then
-    		help
+    		error "do_backup_inc(): incorrect number of params != 3 given"
 	fi
 	SRC="$0"
 	OLD="$1"
@@ -60,14 +60,14 @@ do_backup_inc() {
 
 get_date_sfx() {
 	if (( $# != 1 )); then
-                help
+    		error "get_date_sfx(): incorrect number of params != 1 given"
         fi
         DATE="$0"
 
 	POSTFIX="d"
-	if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
-	if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
-	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
+	[ "$(date --date "$DATE" +%-u)" -eq 7 ] && POSTFIX="w"
+	[ "$(date --date "$DATE" +%-d)" -eq 1 ] && POSTFIX="m"
+	[ "$(date --date "$DATE" +%-j)" -eq 1 ] && POSTFIX="y"
 
 	echo "${DATE}${POSTFIX}"
 }
@@ -140,7 +140,7 @@ BASENAME="$(basename ${SRC})"
 #### Test parameters
 [ -d "${SRC}" ] &&  { echo "Source: ${SRC}" } || {  error "Source subvolume not found: ${SRC}"}
 ## Test for -o $OLD exists
-[ -z ${OLD+x} -o  -d "${OLD}" ] || { error  "Old source subvolume -o defined, but \"${OLD}\" not found" ;}
+[ -z ${OLD+x} -o  -d "${OLD}" ] || { error  "Old source subvolume -o defined, but ${OLD} not found" ;}
 [ -d "${DST_DIR}" ] && { echo "Destination: ${DST_DIR}";} || { error "Destination directory ${DST_DIR} not found"; } 
 
 sync
@@ -166,13 +166,13 @@ fi
 
 if [ -z ${FAILED} ]; then
 	BACKUP_NEW="${DST_DIR}/${BASENAME}"
-	if [ ! -z ${ADD_DATE_SFX}]; then
+	if [ ! -z ${ADD_DATE_SFX} ]; then
 		[ -z ${SFX} ] && SFX="_"
 		DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
 		SFX="${SFX}$(get_date_sfx ${DATE})"
 	fi
-	if [ ! -z ${ADD_TIME_SFX}]; then
-		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -2 | tr -d :)
+	if [ ! -z ${ADD_TIME_SFX} ]; then
+		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -2 | tr -d : )
 		SFX="${SFX}$(TIME}"
 	fi
 
