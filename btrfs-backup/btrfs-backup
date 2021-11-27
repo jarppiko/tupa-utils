@@ -1,23 +1,86 @@
-#!/bin/sh
+#!/bin/bash
 
-# backup btrfs subvol to another btrfs filesystem 
+# backup btrfs subvol to another btrfs filesystem
+#
+## Version 2.0 specs
+# - user getopts()
+# - separate params for snaphot, old snapshot, backup dir, renaming, date postfix
 
-OLD="old"
-NEW="current"
+## Functions
 
-SRC="$1"
-DST_DIR="$2"
-BASENAME="$(basename ${SRC})"
+help() {
+	echo "Usage: $(basename $0) [-odh] SNAPSHOT BACKUP_DIR"
+	echo -e "\t-h\tDisplay help"
+	echo -e "\t-o\tOld snapshot"
+	echo -e "\t-d\tAdd date suffix"
 
+	exit 0
+}
 
 error() {
 	MSG=$1
 	echo "${MSG}"
 	exit 1
 }
+
 get_rand() {
 	cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1 
 }
+
+## Params
+DO_HELP=0
+OLD=""
+ADD_DATE_SFX=0
+ADD_TIME_SFX=0
+SFX=""
+
+if (( $# < 2 )); then
+    help
+fi
+
+while getopts 'hdts:o:' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    d)
+         ADD_DATE_SFX=1
+         ;;
+    t)
+         ADD_DATE_SFX=1
+         ADD_TIME_SFX=1
+         ;;
+    s)
+         SFX="${OPTARG}"
+         ;;
+   o)
+         OLD="${OPTARG}"
+         ;;
+    *)
+        echo "Invalid argument received."
+        help
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+OTHERARGS=$@
+
+if (( ${#OTHERARGS[@]} != 2 )); then
+   echo "Invalid arguments given. SNAPSHOT and/or BACKUP_DIR missing"
+   help
+fi
+
+#################
+
+#OLD="old"
+#NEW="current"
+
+SRC="$1"
+DST_DIR="$2"
+BASENAME="$(basename ${SRC})"
+
 
 [ -d "${SRC}_${OLD}" ] 	|| { error "Old source subvolume ${SRC}_${OLD} not found"; } 
 [ -d "${SRC}_${NEW}" ] 	&& { echo "SRC: ${SRC}"; }	  || { error "New source subvolume ${SRC}_${NEW} not found"; } 
