@@ -9,7 +9,7 @@
 ## Functions
 
 help() {
-	echo "Usage: $(basename $0) [-odh] SNAPSHOT BACKUP_DIR"
+	echo "Usage: $(basename "${0}") [-odh] SNAPSHOT BACKUP_DIR"
 	echo -e "\t-h\tDisplay help"
 	echo -e "\t-o\tOld snapshot"
 	echo -e "\t-d\tAdd date suffix"
@@ -27,13 +27,13 @@ error() {
 }
 
 get_rand() {
-	cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 4 | head -n 1 
+	tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 4 | head -n 1 
 }
 
 do_pause() {
 	SECS=$1
 	[[ $SECS =~ ^-?[0-9]+$ ]] || error "do_pause(): non-integer param given"
-	for ((i = 0 ; i <= $SECS ; i++)); do
+	for ((i = 0 ; i <= SECS ; i++)); do
 		printf "."
 		sleep 1
 	done
@@ -121,7 +121,7 @@ do
 done
 
 shift $((OPTIND-1))
-OTHERARGS=$@
+OTHERARGS=( "$@" )
 
 if (( ${#OTHERARGS[@]} != 2 )); then
    echo "Invalid arguments given. SNAPSHOT and/or BACKUP_DIR missing"
@@ -135,48 +135,58 @@ fi
 
 SRC="$1"
 DST_DIR="$2"
-BASENAME="$(basename ${SRC})"
+BASENAME="$(basename "${SRC}")"
 
 #### Test parameters
-[ -d "${SRC}" ] &&  { echo "Source: ${SRC}" } || {  error "Source subvolume not found: ${SRC}"}
+if [ -d "${SRC}" ]; then
+	echo "Source: ${SRC}"
+else
+	error "Source subvolume not found: ${SRC}"
+fi
 ## Test for -o $OLD exists
-[ -z ${OLD+x} -o  -d "${OLD}" ] || { error  "Old source subvolume -o defined, but ${OLD} not found" ;}
-[ -d "${DST_DIR}" ] && { echo "Destination: ${DST_DIR}";} || { error "Destination directory ${DST_DIR} not found"; } 
+if [ -n "${OLD}" ] && [ -d "${OLD}" ]; then
+	error  "Old source subvolume -o defined, but ${OLD} not found"
+fi
+if [ -d "${DST_DIR}" ]; then
+	echo "Destination: ${DST_DIR}" 
+else
+	error "Destination directory ${DST_DIR} not found"
+fi
 
 sync
 
 unset FAILED
 
 ## Of -o is set
-if [ ! -z ${OLD+x} ]; then
+if [ -n "${OLD}" ]; then
 	echo "Trying to make incremental snapshot... pausing for 3 secs"
 	do_pause 3
 
-	do_backup_inc "${SRC}" "${OLD}" "${DST_DIR}" &&  echo "Incremental backup successful" || FAILED="TRUE"
+	{ do_backup_inc "${SRC}" "${OLD}" "${DST_DIR}" && echo "Incremental backup successful"; } || FAILED="TRUE"
 
-	[ ! -z {FAILED+x} ] && echo "Incremental backup failed"
+	[ -n "${FAILED}" ] && echo "Incremental backup failed"
 fi
 
-if [ -z ${OLD+x} ] || [ ! -z ${FAILED} -a ! -z ${AUTO_RETRY} ]; then
+if [ -z "${OLD}" ] || [ -n "${FAILED}" ] && [ -n "${AUTO_RETRY}" ]; then
 	unset FAILED
 	echo "Trying to make full backup"
 	do_pause 3
 	do_backup_full "${SRC}" "${DST_DIR}" && echo "Full backup successful" || FAILED="TRUE"
 fi
 
-if [ -z ${FAILED} ]; then
+if [ -z "${FAILED}" ]; then
 	BACKUP_NEW="${DST_DIR}/${BASENAME}"
-	if [ ! -z ${ADD_DATE_SFX} ]; then
-		[ -z ${SFX} ] && SFX="_"
+	if [ -n "${ADD_DATE_SFX}" ]; then
+		[ -z "${SFX}" ] && SFX="_"
 		DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
-		SFX="${SFX}$(get_date_sfx ${DATE})"
+		SFX="${SFX}$(get_date_sfx "${DATE}")"
 	fi
-	if [ ! -z ${ADD_TIME_SFX} ]; then
+	if [ -n "${ADD_TIME_SFX}" ]; then
 		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -2 | tr -d : )
-		SFX="${SFX}$(TIME}"
+		SFX="${SFX}${TIME}"
 	fi
 
-	if [ ! -z ${SFX} ]; then
+	if [ -n "${SFX}" ]; then
 		echo "Renaming snapshot"
 		BACKUP_TARGET="${BACKUP_NEW}${SFX}"
 		if [ -d "${BACKUP_TARGET}" ]; then
@@ -185,6 +195,7 @@ if [ -z ${FAILED} ]; then
 		fi
 		mv -v "${BACKUP_NEW}" "${BACKUP_TARGET}" || error "Renaming new subvolume failed ${BACKUP_NEW}"
 	fi
+	[ -n "${REMOVE}" ] && echo "Removing old snapshot: ${OLD}" && btrfs subvolume delete "${OLD}"
 else
 	error "btrfs backup FAILED"
 fi
