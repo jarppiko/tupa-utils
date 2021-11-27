@@ -9,7 +9,7 @@
 ## Functions
 
 help() {
-	echo "Usage: $(basename "${0}") [-odh] SNAPSHOT BACKUP_DIR"
+	echo "Usage: $(basename "${0}") [-hdtar] -o [OLD_SNAPSHOT]  SNAPSHOT BACKUP_DIR"
 	echo -e "\t-h\tDisplay help"
 	echo -e "\t-o\tOld snapshot"
 	echo -e "\t-d\tAdd date suffix"
@@ -37,32 +37,43 @@ do_pause() {
 		printf "."
 		sleep 1
 	done
+	echo ""
 }
 
 do_backup_full() {
 	if (( $# != 2 )); then
     		error "do_backup_full(): incorrect number of params != 2 given"
 	fi
-	SRC="$0"
-	DST="$1"
-	ionice -c 3 nice -10 btrfs send  "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" 
+	SRC="$1"
+	DST="$2"
+	echo "Doing full backup"
+	echo "Source: ${SRC}"
+	echo "Destination: ${DST}"
+	ionice -c 3 nice -10 btrfs send  "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Full backup successful" 
 }
 
 do_backup_inc() {
 	if (( $# != 3 )); then
     		error "do_backup_inc(): incorrect number of params != 3 given"
 	fi
-	SRC="$0"
-	OLD="$1"
-	DST="$2"
-	ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" 
+	SRC="$1"
+	OLD="$2"
+	DST="$3"
+        echo "Doing incremental backup"
+        echo "Source: ${SRC}"
+	echo "Old snapshot: ${OLD}"
+        echo "Destination: ${DST}"
+
+	ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Incremental backup successful"
 }
 
 get_date_sfx() {
 	if (( $# != 1 )); then
     		error "get_date_sfx(): incorrect number of params != 1 given"
         fi
-        DATE="$0"
+        DATE="$1"
+
+	[[ ${DATE} =~ ^[0-9-]{10}$ ]] || error "Invalid date format: ${DATE}"
 
 	POSTFIX="d"
 	[ "$(date --date "$DATE" +%-u)" -eq 7 ] && POSTFIX="w"
@@ -80,8 +91,8 @@ unset DO_HELP
 unset AUTO_RETRY
 unset REMOVE
 unset SFX
-ADD_DATE_SFX=0
-ADD_TIME_SFX=0
+unset ADD_DATE_SFX
+unset ADD_TIME_SFX
 
 
 if (( $# < 2 )); then
@@ -159,30 +170,31 @@ unset FAILED
 
 ## Of -o is set
 if [ -n "${OLD}" ]; then
-	echo "Trying to make incremental snapshot... pausing for 3 secs"
+	echo "Making an incremental snapshot... pausing for 3 secs"
 	do_pause 3
 
-	{ do_backup_inc "${SRC}" "${OLD}" "${DST_DIR}" && echo "Incremental backup successful"; } || FAILED="TRUE"
+	do_backup_inc "${SRC}" "${OLD}" "${DST_DIR}" || FAILED="TRUE"
 
 	[ -n "${FAILED}" ] && echo "Incremental backup failed"
 fi
 
-if [ -z "${OLD}" ] || [ -n "${FAILED}" ] && [ -n "${AUTO_RETRY}" ]; then
+if [ -z "${OLD}" ] || [ -n "${FAILED}" -a -n "${AUTO_RETRY}" ]; then
 	unset FAILED
-	echo "Trying to make full backup"
+	echo "Making a full backup"
 	do_pause 3
-	do_backup_full "${SRC}" "${DST_DIR}" && echo "Full backup successful" || FAILED="TRUE"
+	do_backup_full "${SRC}" "${DST_DIR}" || FAILED="TRUE"
 fi
 
 if [ -z "${FAILED}" ]; then
 	BACKUP_NEW="${DST_DIR}/${BASENAME}"
+	[ -d "${BACKUP_NEW}" ] || error "Cannot find backup snapshot"
 	if [ -n "${ADD_DATE_SFX}" ]; then
 		[ -z "${SFX}" ] && SFX="_"
-		DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -1)
+		DATE=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f 1)
 		SFX="${SFX}$(get_date_sfx "${DATE}")"
 	fi
 	if [ -n "${ADD_TIME_SFX}" ]; then
-		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f -2 | tr -d : )
+		TIME=$(btrfs subvolume show "${BACKUP_NEW}" |grep "Creation time" | cut -f 4 | cut -d \  -f 2 | tr -d : )
 		SFX="${SFX}${TIME}"
 	fi
 
@@ -195,7 +207,7 @@ if [ -z "${FAILED}" ]; then
 		fi
 		mv -v "${BACKUP_NEW}" "${BACKUP_TARGET}" || error "Renaming new subvolume failed ${BACKUP_NEW}"
 	fi
-	[ -n "${REMOVE}" ] && echo "Removing old snapshot: ${OLD}" && btrfs subvolume delete "${OLD}"
+	[ -n "${REMOVE}" ] && echo "Removing old snapshot: ${OLD}" && btrfs subvolume delete "${OLD}" 
 else
 	error "btrfs backup FAILED"
 fi
