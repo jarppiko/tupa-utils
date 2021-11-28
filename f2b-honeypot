@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HONEYPOT_LOG='/var/log/nft.log'
+HONEYPOT_LOG='/var/log/honeypot/nft-honeypot.log'
 PTR_HONEYPOT='NFT honeypot:'
 F2B_JAIL="sshd"
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TRIMCMD="/usr/local/sbin/trim_archives"
+TRIMCMD="/usr/local/sbin/trim-archives"
 
 ## Docs
 ${TRIMCMD} -b -d=45 -w=16 -m=18 -y=3 -H=36 -f /home/backup/localhost/jarno/@snapshot
