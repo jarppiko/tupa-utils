@@ -1,3 +1,6 @@
+#!/bin/bash
+## tupa-utils library functions
+
 error() {
         MSG=$1
         echo "${MSG}"
@@ -5,15 +8,39 @@ error() {
 }
 
 get_rand() {
-        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 4 | head -n 1
+	if (( $# == 0 )); then
+		LEN=4
+        else
+		[[ "$1" =~ ^[0-9]+$ ]] || error "get_rand(): non-integer param given"
+		LEN="$1"
+        fi
+        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w "${LEN}" | head -n 1
 }
 
 do_pause() {
         SECS=$1
-        [[ $SECS =~ ^-?[0-9]+$ ]] || error "do_pause(): non-integer param given"
-        for ((i = 0 ; i <= SECS ; i++)); do
+        [[ $SECS =~ ^[0-9]+$ ]] || error "do_pause(): non-integer param given"
+        for ((i = 0 ; i < SECS ; i++)); do
                 printf "."
                 sleep 1
         done
         echo ""
+}
+
+## get date postfix
+get_date_sfx() {
+        if (( $# == 0 )); then
+		DATE="$(date '+%F')"
+        else
+		DATE="$1"
+	fi
+
+        [[ ${DATE} =~ ^[0-9-]{10}$ ]] || error "Invalid date format: ${DATE}"
+
+        POSTFIX="d"
+        [ "$(date --date "$DATE" +%-u)" -eq 7 ] && POSTFIX="w"
+        [ "$(date --date "$DATE" +%-d)" -eq 1 ] && POSTFIX="m"
+        [ "$(date --date "$DATE" +%-j)" -eq 1 ] && POSTFIX="y"
+
+        echo "${DATE}${POSTFIX}"
 }
