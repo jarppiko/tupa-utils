@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR and transfers the snapshot to another filesystem
+
+MONGO_DIR="/mnt/db/mongodb"
+LOCAL_BACKUP_DIR="/mnt/db/backup/mongodb"
+SNAPSHOT="@snapshot_mongodb"
+REMOTE_BACKUP_DIR="/home/backup/localhost/mongodb"
+
+NEW="${LOCAL_BACKUP_DIR}/${SNAPSHOT}"
+OLD="${NEW}_old"
+
+## Functions
+error() {
+        MSG=$1
+        echo "${MSG}"
+        exit 1
+}
+
+
+## main()
+
+pushd  "${LOCAL_BACKUP_DIR}" > /dev/null ||  error "Channot change to dir ${LOCAL_BACKUP_DIR} "
+
+if [[ -d "${OLD}" ]]; then
+	if [[ -d "${NEW}" ]]; then
+		echo "Deleting old snapshot: ${OLD}" 
+		btrfs subvolume delete "${OLD}" 
+	else
+		echo "No need to delete old snapshot"
+	fi
+fi
+
+if [[ -d "${NEW}" ]] && [[ ! -d "${OLD}" ]]; then
+	mv -v "${NEW}" "${OLD}"  || error "Cannot rename existing snapshot"
+fi
+
+# lock mongod
+mongo_admin_cmd "db.fsyncLock();" || error "Cannot lock mongodb for snapshot"
+sleep 1
+sync
+
+# snapshot
+btrfs subvolume snapshot -r "${MONGO_DIR}" "${NEW}" || error "Snapshot creation failed"
+sync
+
+# unlock mongod
+mongo_admin_cmd "db.fsyncUnlock();" || error "Cannot unlock mongodb. DB LEFT LOCKED"
+
+# backup to DATA disk
+btrfs-backup -a -r -d -o "${OLD}" "${NEW}" "${REMOTE_BACKUP_DIR}" || error "btrfs send-receive failed"
+
+popd > /dev/null || error "could not return to previous dir"
