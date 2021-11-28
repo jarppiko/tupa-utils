@@ -1,0 +1,19 @@
+error() {
+        MSG=$1
+        echo "${MSG}"
+        exit 1
+}
+
+get_rand() {
+        tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 4 | head -n 1
+}
+
+do_pause() {
+        SECS=$1
+        [[ $SECS =~ ^-?[0-9]+$ ]] || error "do_pause(): non-integer param given"
+        for ((i = 0 ; i <= SECS ; i++)); do
+                printf "."
+                sleep 1
+        done
+        echo ""
+}
