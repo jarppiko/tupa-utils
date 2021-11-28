@@ -51,7 +51,7 @@ do_backup_full() {
 	echo "Doing full backup"
 	echo "Source: ${SRC}"
 	echo "Destination: ${DST}"
-	ionice -c 3 nice -10 btrfs send  "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Full backup successful" || echo "Full backup FAILED" && return 1
+	{ ionice -c 3 nice -10 btrfs send  "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Full backup successful";} || { echo "Full backup FAILED" && return 1 ;}
 }
 
 do_backup_inc() {
@@ -66,7 +66,7 @@ do_backup_inc() {
 	echo "Old snapshot: ${OLD}"
         echo "Destination: ${DST}"
 
-	ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Incremental backup successful" || echo "Incremental backup FAILED" && return 1
+	{ ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Incremental backup successful";} || { echo "Incremental backup FAILED" && return 1; }
 }
 
 get_date_sfx() {
