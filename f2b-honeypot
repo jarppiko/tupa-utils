@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HONEYPOT_LOG='/var/log/honeypot/nft-honeypot.log'
+HONEYPOT_LOG='/var/log/nft-honeypot.log'
 PTR_HONEYPOT='NFT honeypot:'
 F2B_JAIL="sshd"
 
@@ -19,7 +19,7 @@ help() {
 }
 
 monitor_log() {
-	tail -f ${HONEYPOT_LOG} | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
+	tail -n 0 -f ${HONEYPOT_LOG} | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
 }
 
 reload_log() {
