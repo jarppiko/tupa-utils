@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# isntall files
+TUPA_PREFIX="/usr/local/sbin"
+
+for f in $@; do
+	# echo "cp -iv \"${f}\" \"${TUPA_PREFIX}/$(basename ${f})"
+	cp -iv "${f}" "${TUPA_PREFIX}/$(basename ${f})"
+done
+
