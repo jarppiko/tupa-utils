@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# isntall files
+# install files
 TUPA_PREFIX="/usr/local/sbin"
 
 for f in $@; do
