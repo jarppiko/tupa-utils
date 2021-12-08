@@ -9,6 +9,9 @@
 # v2.0: syntax OK and tests passed
 
 ## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
 
 help() {
 	echo "Usage: $(basename "${0}") [-hdtar] -o [OLD_SNAPSHOT]  SNAPSHOT BACKUP_DIR"
@@ -20,26 +23,6 @@ help() {
 	echo -e "\t-r\tRemove old source snapshot"
 
 	exit 0
-}
-
-error() {
-	MSG=$1
-	echo "${MSG}"
-	exit 1
-}
-
-get_rand() {
-	tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 4 | head -n 1 
-}
-
-do_pause() {
-	SECS=$1
-	[[ $SECS =~ ^-?[0-9]+$ ]] || error "do_pause(): non-integer param given"
-	for ((i = 0 ; i <= SECS ; i++)); do
-		printf "."
-		sleep 1
-	done
-	echo ""
 }
 
 do_backup_full() {
@@ -68,24 +51,6 @@ do_backup_inc() {
 
 	{ ionice -c 3 nice -10 btrfs send -p "${OLD}" "${SRC}" | ionice -c 3 nice -10 btrfs receive "${DST}" && echo "Incremental backup successful";} || { echo "Incremental backup FAILED" && return 1; }
 }
-
-get_date_sfx() {
-	if (( $# != 1 )); then
-    		error "get_date_sfx(): incorrect number of params != 1 given"
-        fi
-        DATE="$1"
-
-	[[ ${DATE} =~ ^[0-9-]{10}$ ]] || error "Invalid date format: ${DATE}"
-
-	POSTFIX="d"
-	[ "$(date --date "$DATE" +%-u)" -eq 7 ] && POSTFIX="w"
-	[ "$(date --date "$DATE" +%-d)" -eq 1 ] && POSTFIX="m"
-	[ "$(date --date "$DATE" +%-j)" -eq 1 ] && POSTFIX="y"
-
-	echo "${DATE}${POSTFIX}"
-}
-
-
 
 ## Params
 unset OLD
