@@ -10,7 +10,6 @@ error() {
 debug() {
         MSG=$1
         echo "Debug: ${MSG}"
-        exit 1
 }
 
 get_rand() {
