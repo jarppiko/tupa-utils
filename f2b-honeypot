@@ -13,7 +13,8 @@ error() {
 help() {
 	echo "Usage: $(basename $0) [-r]"
 	echo -e "\t-h\tDisplay help"
-	echo -e "\t-r\tReload all IPs from log"
+	echo -e "\t-r N\tReload N latest IPs from log"
+	echo -e "\t-R\tReload all IPs from log"
 	echo -e "\t-m\tMonitor IPs from log"
 	exit 0
 }
@@ -22,19 +23,26 @@ monitor_log() {
 	tail -n 0 -f ${HONEYPOT_LOG} | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
 }
 
-reload_log() {
+reload_log_all() {
 	cat ${HONEYPOT_LOG} | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
 }
 
+reload_log() {
+	N = $1
+	cat ${HONEYPOT_LOG} | tail -n "$N" | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
+}
+
+## main()
 if (( $# == 0 )); then
     help
 fi
 
 
 DO_RELOAD=0
+DO_RELOAD_ALL=0
 DO_MONITOR=0
 
-while getopts 'rhm' option
+while getopts ':rR:hm' option
 do
     case "$option" in
     h)
@@ -44,7 +52,13 @@ do
          DO_MONITOR=1
          ;;
     r)
-         DO_RELOAD=1
+	DO_RELOAD="${OPTARG}"
+	if ![ "$DO_RELOAD" -gt 0 ] 2> /dev/null; then
+		error "correct syntax is: \"-r N\", where N is a positive INTEGER"
+	fi
+	;;
+    R)
+         DO_RELOAD_ALL=1
          ;;
     *)
         echo "Invalid argument received."
@@ -61,8 +75,10 @@ if [ ! -f ${HONEYPOT_LOG} ]; then
 fi
 
 
-if [ $DO_RELOAD -eq 1 ]; then
-	reload_log
+if [ $DO_RELOAD_ALL -eq 1 ]; then
+	reload_log_all
+elif [ $DO_RELOAD -gt 0 ]; then
+	reload_log ${DO_RELOAD}
 fi 
 
 if [ $DO_MONITOR -eq 1 ]; then
