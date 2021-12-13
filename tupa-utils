@@ -3,7 +3,13 @@
 
 error() {
         MSG=$1
-        echo "${MSG}"
+        echo "Error: ${MSG}"
+        exit 1
+}
+
+debug() {
+        MSG=$1
+        echo "Debug: ${MSG}"
         exit 1
 }
 
