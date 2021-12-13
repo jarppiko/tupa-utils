@@ -4,14 +4,14 @@ HONEYPOT_LOG='/var/log/nft-honeypot.log'
 PTR_HONEYPOT='NFT honeypot:'
 F2B_JAIL="sshd"
 
-error() {
-        MSG=$1
-        echo "ERROR: ${MSG}"
-        exit 1
-}
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
 
 help() {
-	echo "Usage: $(basename $0) [-r]"
+	echo "Usage: $(basename "$0") [-r]"
 	echo -e "\t-h\tDisplay help"
 	echo -e "\t-r N\tReload N latest IPs from log"
 	echo -e "\t-R\tReload all IPs from log"
@@ -20,20 +20,20 @@ help() {
 }
 
 monitor_log() {
-	tail -n 0 -f ${HONEYPOT_LOG} | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
+	tail -n 0 -f "${HONEYPOT_LOG}" | sed -unE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" |xargs -rI {} fail2ban-client set ${F2B_JAIL} banip {}
 }
 
 reload_log_all() {
-	cat ${HONEYPOT_LOG} | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
+	<"${HONEYPOT_LOG}" sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
 }
 
 reload_log() {
-	N = $1
-	cat ${HONEYPOT_LOG} | tail -n "$N" | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
+	N="$1"
+	tail -n "$N" "${HONEYPOT_LOG}" | sed -nE "s/.+${PTR_HONEYPOT}.+SRC=([0-9\.]+).+/\1/p" | sort |uniq |xargs -n 50 fail2ban-client set ${F2B_JAIL} banip
 }
 
 ## main()
-if (( $# == 0 )); then
+if (( "$#" == 0 )); then
     help
 fi
 
@@ -53,7 +53,7 @@ do
          ;;
     r)
 	DO_RELOAD="${OPTARG}"
-	if ![ "$DO_RELOAD" -gt 0 ] 2> /dev/null; then
+	if ! [ "$DO_RELOAD" -gt 0 ] 2> /dev/null; then
 		error "correct syntax is: \"-r N\", where N is a positive INTEGER"
 	fi
 	;;
@@ -69,18 +69,18 @@ do
     esac
 done
 
-if [ ! -f ${HONEYPOT_LOG} ]; then
+if [ ! -f "${HONEYPOT_LOG}" ]; then
 	echo "Honeypot log (${HONEYPOT_LOG}) not found"
 	exit 1
 fi
 
 
-if [ $DO_RELOAD_ALL -eq 1 ]; then
+if [ "$DO_RELOAD_ALL" -eq 1 ]; then
 	reload_log_all
-elif [ $DO_RELOAD -gt 0 ]; then
-	reload_log ${DO_RELOAD}
+elif [ "$DO_RELOAD" -gt 0 ]; then
+	reload_log "${DO_RELOAD}"
 fi 
 
-if [ $DO_MONITOR -eq 1 ]; then
+if [ "$DO_MONITOR" -eq 1 ]; then
 	monitor_log
 fi
