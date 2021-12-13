@@ -5,13 +5,13 @@
 # 2014-10-18: changed snapshots to readonly (-r option)
 # 2021-08-07: rewrite 
 
-CONFIG_FILE="${HOME}/.config/tupa-utils"
+TUPA_CONFIG="${HOME}/.config/tupa-utils"
 
 BACKUP_ROOT=/home/backup/localhost
 SILENT=""
 
-if [ -f "${CONFIG_FILE}" ]; then
-	. "${CONFIG_FILE}"
+if [ -f "${TUPA_CONFIG}" ]; then
+	. "${TUPA_CONFIG}"
 fi
 
 declare -a DIRS
@@ -72,23 +72,23 @@ do
 done
 
 # Read rest of the params
-shift $(expr $OPTIND - 1 )
+shift $(expr "$OPTIND" - 1 )
 
-while test $# -gt 0; do
+while test "$#" -gt 0; do
 	if [ -d "${1}" ]; then 
 		DIRS+=( "${1}" )
 	fi
 	shift
 done
 
-if [ -z ${POSTFIX} ]; then 
+if [ -z "${POSTFIX}" ]; then 
 	POSTFIX="d"
-	if [ $(date --date $DATE +%-u) -eq 7 ]; then POSTFIX="w"; fi
-	if [ $(date --date $DATE +%-d) -eq 1 ]; then POSTFIX="m"; fi
-	if [ $(date --date $DATE +%-j) -eq 1 ]; then POSTFIX="y"; fi
+	if [ $(date --date "$DATE" +%-u) -eq 7 ]; then POSTFIX="w"; fi
+	if [ $(date --date "$DATE" +%-d) -eq 1 ]; then POSTFIX="m"; fi
+	if [ $(date --date "$DATE" +%-j) -eq 1 ]; then POSTFIX="y"; fi
 fi
 
-for dir in ${DIRS}; do
+for dir in "${DIRS}"; do
 	NAME=`basename "$dir"`
 	if [ -n "${SILENT}" ]; then
 		echo "Snapshotting ${dir}"
