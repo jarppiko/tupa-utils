@@ -42,7 +42,7 @@ DO_RELOAD=0
 DO_RELOAD_ALL=0
 DO_MONITOR=0
 
-while getopts ':rR:hm' option
+while getopts ':r:Rhm' option
 do
     case "$option" in
     h)
