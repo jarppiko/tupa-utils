@@ -57,7 +57,6 @@ do
 	if  [ ! "$DO_RELOAD" -gt 0 ] 2> /dev/null; then
 		error "correct syntax is: \"-r N\", where N is a positive INTEGER"
 	fi
-	debug "DO_RELOAD=$DO_RELOAD"
 	;;
     R)
          DO_RELOAD_ALL=1
