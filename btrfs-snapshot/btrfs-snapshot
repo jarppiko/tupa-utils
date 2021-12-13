@@ -16,7 +16,7 @@ fi
 
 declare -a DIRS
 
-DATE=`date '+%F'`
+DATE="$(date '+%F')"
 
 # man date:
 #	%u     day of week (1..7); 1 is Monday
@@ -28,7 +28,7 @@ POSTFIX=""
 
 help() {
 
-echo "Usage: $(basename $0) [-h] [-c CONFGIG_FILE] [DIR DIR1 ...]"
+echo "Usage: $(basename "$0") [-h] [-c CONFGIG_FILE] [DIR DIR1 ...]"
 echo -e "\t-h\tDisplay help"
 echo -e "\t-c FILE\tRead configuration from FILE"
 
@@ -55,7 +55,7 @@ do
 				w) POSTFIX="w";;
 				d) POSTFIX="d";;
 				h)
-				  HOUR=$(date '+%H%M')
+				  HOUR="$(date '+%H%M')"
 				  POSTFIX="_${HOUR}h" 
 				;;
 				*) echo "invalid -p option: ${OPTARG}"
@@ -72,24 +72,24 @@ do
 done
 
 # Read rest of the params
-shift $(expr "$OPTIND" - 1 )
+shift "$(( "$OPTIND" - 1 ))"
 
 while test "$#" -gt 0; do
-	if [ -d "${1}" ]; then 
+	if [ -d "${1}" ]; then
 		DIRS+=( "${1}" )
 	fi
 	shift
 done
 
-if [ -z "${POSTFIX}" ]; then 
+if [ -z "${POSTFIX}" ]; then
 	POSTFIX="d"
-	if [ $(date --date "$DATE" +%-u) -eq 7 ]; then POSTFIX="w"; fi
-	if [ $(date --date "$DATE" +%-d) -eq 1 ]; then POSTFIX="m"; fi
-	if [ $(date --date "$DATE" +%-j) -eq 1 ]; then POSTFIX="y"; fi
+	if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
+	if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
+	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
 fi
 
-for dir in "${DIRS}"; do
-	NAME=`basename "$dir"`
+for dir in "${DIRS[@]}"; do
+	NAME="$(basename "$dir")"
 	if [ -n "${SILENT}" ]; then
 		echo "Snapshotting ${dir}"
 	fi
