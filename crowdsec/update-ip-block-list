@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Update Crowdsec IP block list 
+
+URL="https://snort.org/downloads/ip-block-list"
+DURATION="36h"
+REASON="IP blocklist"
+BLOCKLIST="$(mktemp /tmp/ip-block-list.XXXXXXXXXXX.csv)"
+
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+
+help() {
+        echo "Usage: $(basename "$0") [-hRd] URL"
+        echo -e "\t-h\tDisplay help"
+        echo -e "\t-R REASON\tReason for decision"
+        echo -e "\t-d DURATION\tDuration for the ban"
+        exit 0
+}
+
+## main()
+if (( "$#" == 0 )); then
+    help
+fi
+
+
+DO_RELOAD=0
+DO_RELOAD_ALL=0
+DO_MONITOR=0
+
+while getopts ':R:d:h' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    R)
+        REASON="${OPTARG}"
+        ;;
+    d)
+        DURATION="${OPTARG}"
+        ;;
+    *)
+        echo "Invalid argument received."
+        help
+        exit 1
+        return
+        ;;
+    esac
+done
+
+
+shift $((OPTIND-1))
+OTHERARGS=( "$@" )
+
+if (( ${#OTHERARGS[@]} != 1 )); then
+   echo "Invalid arguments given. URL is missing"
+   help
+fi
+
+wget "${URL}" -q -O - |grep -v -E '^#' |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | \
+	awk 'BEGIN {print "value"} {print $0}' > "${BLOCKLIST}"
+
+cscli decisions import --reason "${REASON}" --duration "${DURATION}" -i "${BLOCKLIST}"
+
+rm -f "${BLOCKLIST}"
