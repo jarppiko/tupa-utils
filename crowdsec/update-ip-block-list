@@ -58,7 +58,7 @@ fi
 URL="$1"
 
 
-wget "${URL}" -q -O - |grep -v -E '^#' |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | \
+wget "${URL}" -q -O - |grep -v -E '^#' |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" |sort |uniq | \
 	awk 'BEGIN {print "value"} {print $0}' > "${BLOCKLIST}"
 
 cscli decisions import --reason "${REASON}" --duration "${DURATION}" -i "${BLOCKLIST}"
