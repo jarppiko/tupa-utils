@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR  (e.g. /home/backup/localhost/Flac)
+# UPDATE 2014-10-18: changed snapshots to readonly (-r option)
+
+BACKUP_ROOT="/home/backup/localhost/system/"
+SNAPSHOT_ROOT="/var/backups/system"
+SNAPSHOT_BASE="@snapshot_system"
+SNAPSHOT_SRC="/"
+
+
+## Functions
+
+BTRFS_BACKUP="/usr/local/sbin/btrfs-backup"
+
+TUPA_UTILS="/usr/local/sbin/tupa-utils"
+# shellcheck source=/usr/local/sbin/tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && . "${TUPA_UTILS}";} || exit 1
+
+# man date:
+#	%u     day of week (1..7); 1 is Monday
+#	%d     day of month (e.g., 01)
+#	%j     day of year (001..366)
+#	%-     removes padding (spaces or zeroes)
+
+DATESFX="$(get_date_sfx)"
+
+SNAPSHOT="${SNAPSHOT_ROOT}/${SNAPSHOT_BASE}_${DATESFX}"
+
+if [ -d "${SNAPSHOT}" ]; then
+	SNAPSHOT="${SNAPSHOT}_$(get_rand)"
+fi
+btrfs subvolume snapshot -r "${SNAPSHOT_SRC}" "${SNAPSHOT}"
+
+readarray -n 2 -t SNAPSHOTS <  <(find "${SNAPSHOT_ROOT}" -maxdepth 1  -type d  -name "${SNAPSHOT_BASE}_*" | tail -n 2)
+
+OLD="${SNAPSHOTS[0]}"
+NEW="${SNAPSHOTS[1]}"
+
+"${BTRFS_BACKUP}" -a -o "${OLD}" "${NEW}" "${BACKUP_ROOT}"
