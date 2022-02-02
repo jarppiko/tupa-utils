@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Create Crowdsec scenarios from a template
+SCENARIO_DIR="/etc/crowdsec/scenarios"
+PLACEHOLDER="SERVICE"
+TEMPLATE="honeypot-SERVICE.yaml"
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+
+help() {
+        echo "Usage: $(basename "$0") [-hd] [ -t TEMPLATE ]  service [ service1 ... ]"
+        echo -e "\t-h\tDisplay help"
+        echo -e "\t-d\tDelelte created scenarios"
+        echo -e "\t-t TEMPLATE\tScenario template file to use"
+        exit 0
+}
+
+## main()
+if (( "$#" == 0 )); then
+    help
+fi
+
+ACTION="create"
+while getopts 'dh:t' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    d)
+         ACTION="delete"
+         ;;
+    t)
+        TEMPLATE="${OPTARG}"
+        ;;
+    *)
+        echo "Invalid argument received."
+        help
+        exit 1
+        return
+        ;;
+    esac
+done
+
+
+shift $((OPTIND-1))
+OTHERARGS=( "$@" )
+
+if (( ${#OTHERARGS[@]} == 0 )); then
+   echo "Error. No services given"
+   help
+fi
+
+for s in "${OTHERARGS[@]}"; do 
+	FN="${SCENARIO_DIR}/$(echo "$TEMPLATE" | sed s/${PLACEHOLDER}/${s}/)"
+	SERVICE="$(echo "$TEMPLATE" | sed s/${PLACEHOLDER}/${s}/ |sed -E 's/\.[^\.]+$//')"
+
+	case "${ACTION}" in 
+		create)
+			echo "Creating scenario ${SERVICE}: ${FN}"
+			sed s/${PLACEHOLDER}/${s}/ < "${TEMPLATE}" > "${FN}"
+			;;
+		delete)
+			rm -v "${FN}"
+			;;
+	esac
+done

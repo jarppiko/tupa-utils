@@ -1,0 +1,17 @@
+[Unit]
+Description=Fail2ban
+Requires=network-online.target
+After=network-online.target
+#PartOf=nftables.service
+
+[Service]
+Restart=no
+ExecStart=/usr/bin/fail2ban-client start
+ExecStop=/usr/bin/fail2ban-client stop
+ExecReload=/usr/bin/fail2ban-client reload
+RestartSec=1
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

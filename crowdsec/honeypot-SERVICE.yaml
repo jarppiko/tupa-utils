@@ -1,0 +1,12 @@
+# honeypot: SERVICE 
+type: trigger
+name: honeypot/SERVICE
+description: "Detect SERVICE probing using honeypot"
+filter: "evt.Meta.log_type == 'netfilter_drop' && evt.Meta.service == 'SERVICE'"
+groupby: evt.Meta.source_ip
+blackhole: 30s
+reprocess: false
+labels:
+ service: SERVICE
+ type: probing
+ remediation: true
