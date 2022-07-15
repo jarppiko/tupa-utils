@@ -1,0 +1,37 @@
+
+#!/bin/sh
+# set directory access rights 
+
+set -o nounset
+
+PROG="`basename "$0"`"
+
+## functions
+
+usage() {
+	echo "Usage $PROG DIR USER GROUP DIR_PERMS FILE_PERMS"
+}
+
+# main()
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then 
+	echo "Sets file/dir permissions recursively"
+	usage
+	exit 1
+fi
+
+# Check params
+[ "$#" != "5" ] && usage && exit 1
+
+DIR="$1"
+F_USER="$2"
+F_GROUP="$3"
+D_PERM="$4"
+F_PERM="$5"
+
+test -d "$DIR" || { echo "Error, $DIR does not exist" && exit 1; }
+
+find "$DIR" -type d ! -perm "$D_PERM" -print0 | xargs -r0 chmod "$D_PERM"
+find "$DIR" -type f ! -perm "$F_PERM" -print0 | xargs -r0 chmod "$F_PERM"
+find "$DIR" ! -user "$F_USER" -print0 | xargs -r0 chown "$F_USER"
+find "$DIR" ! -group "$F_GROUP" -print0 | xargs -r0 chgrp "$F_GROUP"
+
