@@ -18,7 +18,10 @@ help() {
 [[ "${1}" == "-h" || "${1}" == "help" || "${1}" == "--help" ]] && help
 
 APP="${1}"
-[[ "${APP}" =~ ^[:alnum:]+$ ]] || error "Invalid app: ${APP}"
+[[ "${APP}" =~ ^[[:alnum:]_\-]+ ]]; echo "${BASH_REMATCH[0]}"
+
+[[ "${APP}" =~ ^[[:alnum:]_\-]+ ]]
+[[ "${APP}" == "${BASH_REMATCH[0]}" ]] || error "Invalid application: ${APP}"
 
 pushd /usr/local/docker/"${APP}" || error "Cannot change to /usr/local/docker/${APP}"
 docker-compose pull "${APP}"
