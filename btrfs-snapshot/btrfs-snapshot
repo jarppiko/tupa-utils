@@ -8,7 +8,11 @@
 TUPA_CONFIG="${HOME}/.config/tupa-utils"
 
 BACKUP_ROOT=/home/backup/localhost
-SILENT=""
+SOURCE=
+TARGET=
+NAME=
+QUIET=""
+
 
 if [ -f "${TUPA_CONFIG}" ]; then
 	. "${TUPA_CONFIG}"
@@ -28,24 +32,38 @@ POSTFIX=""
 
 help() {
 
-echo "Usage: $(basename "$0") [-h] [-c CONFGIG_FILE] [DIR DIR1 ...]"
-echo -e "\t-h\tDisplay help"
+echo "Usage: $(basename "$0") [-h|q] [-c CONFGIG_FILE] [-b BACKUP_ROOT] [-s SOURCE] [-t TARGET] [-n NAME] [DIR DIR1 ...]"
+echo -e "\t-h\t\tDisplay help"
+echo -e "\t-q\t\tQuiet operations"
+echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
+echo -e "\t-s SOURCE\tSet SOURCE directory to snapshot"
+echo -e "\t-t TARGET\tSet TARGET directory to store the snapshot in"
+echo -e "\t-n NAME\tSet snapshot name"
 echo -e "\t-c FILE\tRead configuration from FILE"
 
 exit 0
 }
 
-while getopts ':hb:c:p:s' option
+while getopts ':hc:b:s:t:n:p:q' option
 do
 	case "$option" in
 		h)
 			help
 		;;
-		s)
-			SILENT="Y"
+		q)
+			QUIET="Y"
 		;;
 		b)
 			BACKUP_ROOT="${OPTARG}"
+		;;
+		s)
+			SOURCE="${OPTARG}"
+		;;
+		t)
+			TARGET="${OPTARG}"
+		;;
+		n)
+			NAME="${OPTARG}"
 		;;
 		p)
 			case "${OPTARG}" in
@@ -88,10 +106,29 @@ if [ -z "${POSTFIX}" ]; then
 	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
 fi
 
-for dir in "${DIRS[@]}"; do
-	NAME="$(basename "$dir")"
-	if [ -n "${SILENT}" ]; then
-		echo "Snapshotting ${dir}"
+[  -n "${SOURCE}" ]; SOURCE_EXISTS=$?
+[  -n "${TARGET}" ]; TARGET_EXISTS=$?
+if [[ "${SOURCE_EXISTS}" -ne "${TARGET_EXISTS}" ]]; then
+	error "If SOURCE or TARGET has been set, also the other one has to be set"
+fi
+
+
+if [[ -z "${SOURCE}" ]] && [[ -z  "${TARGET}" ]]; then
+	if [[ -n "${NAME}" ]]; then
+		NAME="$(basename "${SOURCE}")"
 	fi
-	btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
-done
+		if [ -n "${QUIET}" ]; then
+			echo "Snapshotting ${SOURCE}"
+		fi
+		btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+else
+
+	for dir in "${DIRS[@]}"; do
+		NAME="$(basename "$dir")"
+		if [ -n "${QUIET}" ]; then
+			echo "Snapshotting ${dir}"
+		fi
+		btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+	done
+
+fi
