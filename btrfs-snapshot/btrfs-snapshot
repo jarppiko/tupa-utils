@@ -113,14 +113,15 @@ if [[ "${SOURCE_EXISTS}" -ne "${TARGET_EXISTS}" ]]; then
 fi
 
 
-if [[ -z "${SOURCE}" ]] && [[ -z  "${TARGET}" ]]; then
-	if [[ -n "${NAME}" ]]; then
+if [[ -n "${SOURCE}" ]] && [[ -n  "${TARGET}" ]]; then
+	if [[ -z "${NAME}" ]]; then
 		NAME="$(basename "${SOURCE}")"
 	fi
-		if [ -n "${QUIET}" ]; then
-			echo "Snapshotting ${SOURCE}"
-		fi
-		btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+	if [ -n "${QUIET}" ]; then
+		echo "Snapshotting ${SOURCE}"
+	fi
+	echo "DEBUG: $NAME"
+	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
 else
 
 	for dir in "${DIRS[@]}"; do
