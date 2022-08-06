@@ -1,0 +1,100 @@
+#!/bin/bash
+
+## Functions
+
+# read config vars
+. ~/.config/mongodb/backup-mongodb.conf
+
+error() {
+        MSG=$1
+        echo "ERROR: ${MSG}"
+        exit 1
+}
+
+help() {
+    echo "Usage: $(basename "$0") [-hdqatpA] [-C COLLECTION] [-f FILE]"
+    echo -e "\t-h\t\tDisplay help"
+    echo -e "\t-a\t\tBackup accounts"
+    echo -e "\t-p\t\tBackup player achievements"
+    echo -e "\t-t\t\tBackup tank stats"
+    echo -e "\t-A\t\tBackup ALL"
+    echo -e "\t-C COLLECTION\tBackup COLLECTION"
+    echo -e "\t-d\t\tAdd timestamp to filename"
+    echo -e "\t-q\t\tQuiet operation"
+    echo -e "\t-f\t\tFilename"
+    exit 0
+}
+
+if [ ${#} -eq 0 ]; then
+    help
+fi
+
+ALL=0
+COLLECTION=
+FILE=
+DATE=
+QUIET=
+
+while getopts 'hqdatpAC:f:' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    d)
+        DATE=".$(date +%F_%H%M)"
+        ;;
+    q)
+        QUIET="--quiet"
+        ;;
+    a)
+        COLLECTION="WG_Accounts"
+         ;;
+    p)
+        COLLECTION="WG_PlayerAchievements"
+         ;;
+    t)
+        COLLECTION="WG_TankStats"
+         ;;
+    A)
+        ALL=1
+        ;;
+    C)
+        ALL=0
+        COLLECTION="${OPTARG}"
+        ;;
+    f)
+        FILE="${OPTARG}"
+        ;;
+    *)
+        echo "Invalid argument received."
+        help
+        ;;
+    esac
+done
+
+[ -z "${M_USER}" ]	&& error "MongoDB user (M_USER)is not defined"
+[ -z "${M_PASSWD}" ]	&& error "MongoDB password (M_PASSWD) is not defined"
+[ -z "${M_HOST}" ]	&& error "MongoDB host (M_HOST) is not defined"
+[ -z "${M_CA}" ]	&& error "MongoDB CA cert (M_CA) is not defined"
+[ -z "${C_CERT}" ]	&& error "MongoDB client cert (C_CERT) is not defined"
+[ -z "${AUTH_DB}" ]	&& error "Authentication DB (AUTH_DB) is not defined"
+[ -z "${DB}" ]		&& error "Database to backup (DB) is not defined"
+[ -z "${ARCHIVE_DIR}" ] && error "Archive dir (ARCHIVE_DIR) is not defined"
+
+MONGO_PARAMS=( --host="${M_HOST}" --username="${M_USER}" --ssl --tlsInsecure  --sslCAFile="${M_CA}" --sslPEMKeyFile="${C_CERT}" --authenticationDatabase="${AUTH_DB}" --db="${DB}" --gzip )
+
+
+if [ $ALL -eq 0 ]; then
+    if [ -z "${FILE}" ]; then
+        FILE="${ARCHIVE_DIR}/${DB}.${COLLECTION}${DATE}.gz"
+    fi
+    COLLECTION="--collection=${COLLECTION}"
+else
+    if [ -z "${FILE}" ]; then
+        FILE="${ARCHIVE_DIR}/${DB}${DATE}.gz"
+    fi
+    COLLECTION=""
+fi
+
+echo "${M_PASSWD}" |  mongodump "${MONGO_PARAMS[@]}" "${COLLECTION}" --archive="${FILE}" "${QUIET}"
