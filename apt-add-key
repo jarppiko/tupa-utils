@@ -1,0 +1,32 @@
+#!/bin/bash
+
+## Script to download apt keyt 
+
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+help() {
+        echo "Usage: $(basename "${0}") [-h|--help] KEYNAME URL"
+        echo -e "\t-h|--help\tDisplay help"
+        exit 0
+}
+
+[[ ${#} == 2 ]] || help
+
+KEY="${1}"
+URL="${2}"
+
+KEYFILE="/etc/apt/keyrings/${KEY}.gpg"
+
+if [ -f "${KEYFILE}" ]; then
+	echo "GPG key exists: ${KEYFILE}"
+	echo "overwrite y/N?"
+	read -r ANSWER 
+	[[ "${ANSWER}" == "y" ]] || error "Exiting..."
+fi 
+
+wget -O- "${URL}" | gpg --dearmor > "${KEYFILE}"
+
+chmod 644 "${KEYFILE}"
