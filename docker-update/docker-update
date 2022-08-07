@@ -24,6 +24,6 @@ APP="${1}"
 [[ "${APP}" == "${BASH_REMATCH[0]}" ]] || error "Invalid application: ${APP}"
 
 pushd /usr/local/docker/"${APP}" || error "Cannot change to /usr/local/docker/${APP}"
-docker-compose pull "${APP}"
-docker-compose up -d "${APP}"
+docker-compose pull "${APP}" || error "docker pull failed"
+docker-compose up -d "${APP}" || error "docker-compose up failed"
 popd || error "Could not return to working dir"
