@@ -1,0 +1,119 @@
+#!/bin/bash
+
+## Functions
+
+error() {
+        MSG=$1
+        echo "ERROR: ${MSG}"
+        exit 1
+}
+
+help() {
+    echo "Usage: $(basename "$0") [-hcuA] [-s FILE] DIR [DIR1 ...]"
+    echo -e "\t-h\t\tDisplay help"
+    echo -e "\t-q\t\tDo not print checksums"
+    echo -e "\t-c\t\tCheck existing checksums"
+    echo -e "\t-u\t\tCheck and update existing checksums"
+#    echo -e "\t-A FILE\tFilename for aggregate file"
+    exit 0
+}
+
+if [ ${#} -eq 0 ]; then
+    help
+fi
+
+MODE="create"
+QUIET=
+BASEDIR=
+CHECKSUM=".checksum"
+
+declare -a ALGO
+
+while getopts 'hqcua:A:b:' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    q)
+        QUIET="yes"
+        ;;
+    c)
+        MODE="check"
+         ;;
+    u)
+        MODE="update"
+         ;;
+    a)
+	case "${OPTARG}" in
+		b3)
+			ALGO+=( "b3" )
+		;;
+		sha256)
+			ALGO+=("sha256" )
+		;;
+		sha512)
+			ALGO+=( "sha512" )
+		;;
+		md5)
+			ALGO+=( "md5" )
+		;;
+		*)
+			error "Unknown hash algorithm ${OPTARG}"
+		;;
+	esac
+	;;
+    b)
+        BASEDIR="${OPTARG}"
+        ;;
+    esac
+done
+
+if (( ${#ALGO[@]} == 0 )); then
+    ALGO+=( "b3" )
+fi
+
+
+# Read rest of the params
+shift "$(( "$OPTIND" - 1 ))"
+
+declare -a DIRS
+
+while test "$#" -gt 0; do
+        if [ -d "${1}" ]; then
+                DIRS+=( "${1}" )
+        fi
+        shift
+done
+
+if [ -n "${BASEDIR}" ]; then
+	pushd  "${BASEDIR}" > /dev/null || error "Cannot change into ${BASEDIR}" 
+fi
+
+set -u
+if [ "${MODE}" = "create" ]; then
+	for dir in "${DIRS[@]}"; do
+		# cd "${dir}" || continue
+		while read -r d; do
+			pushd "${d}"  > /dev/null || continue
+			if [ -n "${QUIET}" ]; then
+				echo "${d}"
+			else
+				echo "## ${d}"
+			fi
+			for alg in "${ALGO[@]}"; do
+				if [ -n "${QUIET}" ]; then
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" > "${CHECKSUM}.${alg}"
+				else
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" | tee "${CHECKSUM}.${alg}"
+				fi
+			done
+			popd > /dev/null
+		done < <(find  "${dir}" -type d)
+	done
+fi
+
+if [ -n "${BASEDIR}" ]; then
+	popd > /dev/null
+fi
+
