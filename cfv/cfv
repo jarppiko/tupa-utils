@@ -111,10 +111,11 @@ if [ "${MODE}" = "create" ] || [ "${MODE}" = "update" ]; then
 				fi
 
 				if [ -n "${QUIET}" ]; then
-					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- > "${CHECKSUM}.${alg}"
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- > "${CHECKSUM}.tmp"
 				else
-					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- | tee "${CHECKSUM}.${alg}"
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- | tee "${CHECKSUM}.tmp"
 				fi
+				mv "${CHECKSUM}.tmp" "${CHECKSUM}.${alg}"
 			done
 			popd > /dev/null || error "Could not return to dir"
 		done < <(find  "${dir}" -type d)
