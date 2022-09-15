@@ -12,6 +12,11 @@ debug() {
         echo "Debug: ${MSG}"
 }
 
+verbose() {
+        MSG=$1
+        [ -z "${QUIET}" ] && echo "${MSG}"
+}
+
 get_rand() {
 	if (( $# == 0 )); then
 		LEN=4
