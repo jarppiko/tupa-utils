@@ -2,11 +2,10 @@
 
 ## Functions
 
-error() {
-        MSG=$1
-        echo "ERROR: ${MSG}"
-        exit 1
-}
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
 
 help() {
     echo "Usage: $(basename "$0") [-hcuA] [-s FILE] DIR [DIR1 ...]"
@@ -29,8 +28,9 @@ CHECKSUM=".checksum"
 
 declare -a ALGO
 
-while getopts 'hqcua:A:b:' option
+while getopts 'hqcuUa:b:' option
 do
+# shellcheck disable=SC2220
     case "$option" in
     h)
          help
@@ -43,6 +43,9 @@ do
          ;;
     u)
         MODE="update"
+         ;;
+    U)
+        MODE="compare_update"
          ;;
     a)
 	case "${OPTARG}" in
@@ -91,7 +94,7 @@ if [ -n "${BASEDIR}" ]; then
 fi
 
 set -u
-if [ "${MODE}" = "create" ]; then
+if [ "${MODE}" = "create" ] || [ "${MODE}" = "update" ]; then
 	for dir in "${DIRS[@]}"; do
 		# cd "${dir}" || continue
 		while read -r d; do
@@ -102,18 +105,23 @@ if [ "${MODE}" = "create" ]; then
 				echo "## ${d}"
 			fi
 			for alg in "${ALGO[@]}"; do
+				if  [ "${MODE}" = "update" ] && [ -s "${CHECKSUM}.${alg}" ]; then
+					verbose "${d} : Skipping"
+					continue
+				fi
+
 				if [ -n "${QUIET}" ]; then
 					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- > "${CHECKSUM}.${alg}"
 				else
 					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- | tee "${CHECKSUM}.${alg}"
 				fi
 			done
-			popd > /dev/null
+			popd > /dev/null || error "Could not return to dir"
 		done < <(find  "${dir}" -type d)
 	done
 fi
 
 if [ -n "${BASEDIR}" ]; then
-	popd > /dev/null
+	popd > /dev/null  || error "Could not return to dir"
 fi
 
