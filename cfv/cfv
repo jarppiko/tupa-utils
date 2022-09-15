@@ -103,9 +103,9 @@ if [ "${MODE}" = "create" ]; then
 			fi
 			for alg in "${ALGO[@]}"; do
 				if [ -n "${QUIET}" ]; then
-					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" > "${CHECKSUM}.${alg}"
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- > "${CHECKSUM}.${alg}"
 				else
-					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" | tee "${CHECKSUM}.${alg}"
+					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- | tee "${CHECKSUM}.${alg}"
 				fi
 			done
 			popd > /dev/null
