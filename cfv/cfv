@@ -12,9 +12,16 @@ help() {
     echo -e "\t-h\t\tDisplay help"
     echo -e "\t-q\t\tDo not print checksums"
     echo -e "\t-c\t\tCheck existing checksums"
-    echo -e "\t-u\t\tCheck and update existing checksums"
+    echo -e "\t-u\t\tUpdate missing checksums"
+    echo -e "\t-U\t\tUpdate checksums"
+    echo -e "\t-d\t\tAdd date to previous checksum version"
 #    echo -e "\t-A FILE\tFilename for aggregate file"
     exit 0
+}
+
+file_modified() {
+	FILE="${1}"
+	date -r "${FILE}" +"%Y%m%d"
 }
 
 if [ ${#} -eq 0 ]; then
@@ -24,11 +31,12 @@ fi
 MODE="create"
 QUIET=
 BASEDIR=
+DATE=
 CHECKSUM=".checksum"
 
 declare -a ALGO
 
-while getopts 'hqcuUa:b:' option
+while getopts 'hqcduUa:b:' option
 do
 # shellcheck disable=SC2220
     case "$option" in
@@ -46,6 +54,9 @@ do
          ;;
     U)
         MODE="compare_update"
+         ;;
+    d)
+        DATE="yes"
          ;;
     a)
 	case "${OPTARG}" in
@@ -105,7 +116,8 @@ if [ "${MODE}" = "create" ] || [ "${MODE}" = "update" ]; then
 				echo "## ${d}"
 			fi
 			for alg in "${ALGO[@]}"; do
-				if  [ "${MODE}" = "update" ] && [ -s "${CHECKSUM}.${alg}" ]; then
+				CHECKSUM_FILE="${CHECKSUM}.${alg}"
+				if  [ "${MODE}" = "update" ] && [ -s "${CHECKSUM_FILE}" ]; then
 					verbose "${d} : Skipping"
 					continue
 				fi
@@ -115,7 +127,10 @@ if [ "${MODE}" = "create" ] || [ "${MODE}" = "update" ]; then
 				else
 					find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- | tee "${CHECKSUM}.tmp"
 				fi
-				mv "${CHECKSUM}.tmp" "${CHECKSUM}.${alg}"
+				if [ -n "${DATE}" ] && [ -f "${CHECKSUM_FILE}" ]; then 
+					mv "${CHECKSUM_FILE}" "${CHECKSUM_FILE}_$(file_modified "${CHECKSUM_FILE}")"
+				fi
+				mv "${CHECKSUM}.tmp" "${CHECKSUM_FILE}"
 			done
 			popd > /dev/null || error "Could not return to dir"
 		done < <(find  "${dir}" -type d)
