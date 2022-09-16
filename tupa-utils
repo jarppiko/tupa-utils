@@ -2,18 +2,18 @@
 ## tupa-utils library functions
 
 error() {
-        MSG=$1
+        MSG="${1}"
         echo "Error: ${MSG}"
         exit 1
 }
 
 debug() {
-        MSG=$1
+        MSG="${1}"
         echo "Debug: ${MSG}"
 }
 
 verbose() {
-        MSG=$1
+        MSG="${1}"
         [ -z "${QUIET}" ] && echo "${MSG}"
 }
 
@@ -28,7 +28,7 @@ get_rand() {
 }
 
 do_pause() {
-        SECS=$1
+        SECS="${1}"
         [[ $SECS =~ ^[0-9]+$ ]] || error "do_pause(): non-integer param given"
         for ((i = 0 ; i < SECS ; i++)); do
                 printf "."
