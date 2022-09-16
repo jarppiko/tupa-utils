@@ -30,7 +30,7 @@ if [ ${#} -eq 0 ]; then
 fi
 
 MODE="create"
-QUIET=""
+QUIET=
 BASEDIR=
 DATE=
 CHECKSUM=".checksum"
@@ -113,7 +113,7 @@ for dir in "${DIRS[@]}"; do
 		echo "# Directory: ${d}"
 		for alg in "${ALGO[@]}"; do
 			CHECKSUM_FILE="${CHECKSUM}.${alg}"
-			if  [ "${MODE}" = "update" ] && [ -s "${CHECKSUM_FILE}" ]; then
+			if  [ "${MODE}" = "missing" ] && [ -s "${CHECKSUM_FILE}" ]; then
 				verbose "${d} : Skipping"
 				continue
 			fi
@@ -125,6 +125,11 @@ for dir in "${DIRS[@]}"; do
 					"${alg}sum"  --check "${CHECKSUM_FILE}"
 				fi
 				continue
+			fi
+
+			if (( $(find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" | wc -l) == 0)); then
+				[ -f "${CHECKSUM}.tmp" ] && rm "${CHECKSUM}.tmp"
+				touch "${CHECKSUM}.tmp"
 			elif [ -n "${QUIET}" ] ||[ "${MODE}" = "update" ]; then
 				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | xargs -0 "${alg}sum" -- > "${CHECKSUM}.tmp"
 			else
@@ -141,6 +146,8 @@ for dir in "${DIRS[@]}"; do
 			fi
 
 			mv "${CHECKSUM}.tmp" "${CHECKSUM_FILE}"
+			# delete empty checksum files
+			[ ! -s "${CHECKSUM_FILE}" ] && rm "${CHECKSUM_FILE}"
 
 		done
 		popd > /dev/null || error "Could not return to dir"
