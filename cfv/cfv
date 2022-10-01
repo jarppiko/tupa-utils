@@ -166,9 +166,9 @@ for dir in "${DIRS[@]}"; do
 				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- | tee "${CHECKSUM_TMP}"
 			fi
 
-			if [ "${MODE}" = "check" ] && [ -n "${FORCE}" ] || [ "${MODE}" = "update" ]; then
+			if [ "${MODE}" = "create" ] && [ -z "${FORCE}" ] || [ "${MODE}" = "update" ]; then
 				if [ -f "${CHECKSUM_FILE}" ]; then
-				# keep the old checksum file if there isn't any difference
+					# keep the old checksum file if there isn't any difference
 					diff "${CHECKSUM_FILE}" "${CHECKSUM_TMP}" | grep  '^[<>]'
 					if [ "${PIPESTATUS[0]}" = "0" ]; then
 						touch  "${CHECKSUM_FILE}"
