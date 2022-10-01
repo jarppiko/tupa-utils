@@ -8,10 +8,8 @@ Usage: `cfv [OPTIONS] DIR [DIR2 ...]`
 
 ### Options
 
-`--algo b3|md5|sha256|sha512`		Select hash algorithms. Default: `b3`
-
-`--check`				Check existing checksums instead of creating those (which is default)
-
-`--update`				Check and update existing checksums
-
-`--summary`				Create a summary file with all the checksums in addition to the per directory checksum files. 
+`-a b3|md5|sha256|sha512`	Select hash algorithms. Default: `b3`
+`-c`				Check existing checksums instead of creating those (which is default)
+`-u`				Update missing checksums
+`-U`				Check and update existing checksums
+`-A`				Create a summary file with all the checksums in addition to the per directory checksum files. 

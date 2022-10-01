@@ -13,6 +13,7 @@ help() {
     echo -e "\t-q\t\tDo not print checksums"
     echo -e "\t-c\t\tCheck existing checksums"
     echo -e "\t-u\t\tUpdate changed checksums"
+    echo -e "\t-f\t\tForce creation of a new checksum file even no changes detected"
     echo -e "\t-d\t\tAdd date to previous checksum version"
     echo -e "\t-b DIR\tBase directory for the operations"
 #    echo -e "\t-A FILE\tFilename for aggregate file"
@@ -36,13 +37,14 @@ fi
 
 MODE="create"
 QUIET=
+FORCE=
 BASEDIR=
 DATE=
 CHECKSUM=".checksum"
 
 declare -a ALGO
 
-while getopts 'hqdcub:a:' option
+while getopts 'hqdcufb:a:' option
 do
 # shellcheck disable=SC2220
     case "$option" in
@@ -60,6 +62,9 @@ do
          ;;
     d)
         DATE="yes"
+         ;;
+    f)
+        FORCE="yes"
          ;;
     a)
 	case "${OPTARG}" in
@@ -161,12 +166,15 @@ for dir in "${DIRS[@]}"; do
 				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- | tee "${CHECKSUM_TMP}"
 			fi
 
-			if [ "${MODE}" = "update" ] && [ -f "${CHECKSUM_FILE}" ]; then
+			if [ "${MODE}" = "check" ] && [ -n "${FORCE}" ] || [ "${MODE}" = "update" ]; then
+				if [ -f "${CHECKSUM_FILE}" ]; then
 				# keep the old checksum file if there isn't any difference
-				diff "${CHECKSUM_FILE}" "${CHECKSUM_TMP}" | grep  '^[<>]'
-				if [ "${PIPESTATUS[0]}" = "0" ]; then
-					rm "${CHECKSUM_TMP}"
-					continue
+					diff "${CHECKSUM_FILE}" "${CHECKSUM_TMP}" | grep  '^[<>]'
+					if [ "${PIPESTATUS[0]}" = "0" ]; then
+						touch  "${CHECKSUM_FILE}"
+						rm "${CHECKSUM_TMP}"
+						continue
+					fi
 				fi
 			fi
 
