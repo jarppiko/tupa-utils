@@ -20,6 +20,11 @@ help() {
     exit 0
 }
 
+### MODE logic
+# create (detault) 	: calculate all checksums, update ONLY if changed OR if FORCE
+# update    		: calculate only checksums for changed files since the last checksum
+# check			: check existing checksums
+
 # Print file modification time
 file_mdate() {
 	date -r "${1}" +"%Y%m%d"
@@ -120,7 +125,7 @@ for dir in "${DIRS[@]}"; do
 	# cd "${dir}" || continue
 	while read -r d; do
 		pushd "${d}"  > /dev/null || continue
-		echo "# Directory: ${d}"
+		[ -z "${QUIET}" ] &&  echo "# Directory: ${d}"
 		for alg in "${ALGO[@]}"; do
 			CHECKSUM_FILE="${CHECKSUM}.${alg}"
 			CHECKSUM_TMP="${CHECKSUM}.tmp"
@@ -130,6 +135,9 @@ for dir in "${DIRS[@]}"; do
 
 			if [ "${MODE}" = "check" ]; then
  				[ -f "${CHECKSUM_FILE}" ] || continue
+
+				## TODO: QUIET logic for dir names
+
 				if [ -n "${QUIET}" ]; then
 					"${alg}sum"  --check --quiet "${CHECKSUM_FILE}"
 				else
@@ -141,7 +149,7 @@ for dir in "${DIRS[@]}"; do
 			touch "${CHECKSUM_TMP}"
 			if [ "${MODE}" = "update" ] && [ -s "${CHECKSUM_FILE}" ]; then
 
-				# calculate checksum for files IN CHECKSUM_FILEmodified later than then CHECKSUM_FILE
+				# calculate checksum for files IN CHECKSUM_FILE modified later than then CHECKSUM_FILE
 				while read -r line; do
 					file="$(echo "${line}" | sed -E 's/([0-9a-f]+)[[:blank:]]+(.+)/\2/')"
 					if [ -f "${file}" ];then
@@ -160,11 +168,15 @@ for dir in "${DIRS[@]}"; do
 				# sort in-place
 				sort -k 2 -o "${CHECKSUM_TMP}" "${CHECKSUM_TMP}"
 
-			elif [ -n "${QUIET}" ] || [ "${MODE}" = "update" ]; then
-				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- > "${CHECKSUM_TMP}"
+#			elif [ -n "${QUIET}" ] || [ "${MODE}" = "update" ]; then
 			else
-				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- | tee "${CHECKSUM_TMP}"
+				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- > "${CHECKSUM_TMP}"
+#			else
+#				find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\0' | sort -z | xargs -r -0 "${alg}sum" -- | tee "${CHECKSUM_TMP}"
 			fi
+
+
+			# print out logic
 
 			if [ "${MODE}" = "create" ] && [ -z "${FORCE}" ] || [ "${MODE}" = "update" ]; then
 				if [ -f "${CHECKSUM_FILE}" ]; then
@@ -174,14 +186,19 @@ for dir in "${DIRS[@]}"; do
 						touch  "${CHECKSUM_FILE}"
 						rm "${CHECKSUM_TMP}"
 						continue
+					else
+						# print dir name if QUIET
+						[ -n "${QUIET}" ] &&  echo "# Directory: ${d}"
+						cat "${CHECKSUM_TMP}"
 					fi
 				fi
+			elif [ -z "${QUIET}" ]; then
+				cat "${CHECKSUM_TMP}"
 			fi
 
 			if [ -n "${DATE}" ] && [ -f "${CHECKSUM_FILE}" ]; then
 				mv "${CHECKSUM_FILE}" "${CHECKSUM_FILE}_$(file_mdate "${CHECKSUM_FILE}")"
 			fi
-
 			mv "${CHECKSUM_TMP}" "${CHECKSUM_FILE}"
 			# delete empty checksum files
 			[ ! -s "${CHECKSUM_FILE}" ] && rm "${CHECKSUM_FILE}"
