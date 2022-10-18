@@ -74,7 +74,7 @@ do
          help
          ;;
     q)
-        QUIET="--quiet"
+        QUIET="yes"
         ;;
     c)
         MODE="check"
@@ -155,7 +155,7 @@ for dir in "${DIRS[@]}"; do
   				# [ -f "${CHECKSUM_FILE}" ] || continue
 				if [ -n "${QUIET}" ]; then
 					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check --quiet "${CHECKSUM_FILE}"  >> "${CHECKSUM_TMP}" 2>&1
-					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : checksum missing/' >> "${CHECKSUM_TMP}" 2>&1
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : CHECKSUM MISSING/' >> "${CHECKSUM_TMP}" 2>&1
 					if [ -s "${CHECKSUM_TMP}" ]; then
 						echo "# Directory: ${d}"
 						cat "${CHECKSUM_TMP}"
@@ -164,13 +164,16 @@ for dir in "${DIRS[@]}"; do
 				else
 					echo "# Directory: ${d}"
 					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check "${CHECKSUM_FILE}"
-					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : checksum missing/'
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : CHECKSUM MISSING/'
 				fi
 				continue
 			fi
 
 			touch "${CHECKSUM_TMP}"
 			if [ "${MODE}" = "update" ]; then
+
+				[ -n "${QUIET}" ] || echo "# Directory: ${d}"
+
 				# calculate checksums for files not present in CHECKSUM_FILE
 				list_missing_files "${CHECKSUM_FILE}" | xargs -r  "${alg}sum" -- >> "${CHECKSUM_TMP}" 2>&1
 
@@ -192,7 +195,6 @@ for dir in "${DIRS[@]}"; do
 
 					# keep the old checksum file if there isn't any difference
 					diff "${CHECKSUM_FILE}" "${CHECKSUM_TMP}" | grep  '^[<>]' > "${CHECKSUM_TMP}.DIFF"
-					[ -n "${QUIET}" ] || echo "# Directory: ${d}"
 					if [ "${PIPESTATUS[0]}" = "0" ]; then
 						touch  "${CHECKSUM_FILE}"
 						rm "${CHECKSUM_TMP}" "${CHECKSUM_TMP}.DIFF"
@@ -203,6 +205,16 @@ for dir in "${DIRS[@]}"; do
 						cat "${CHECKSUM_TMP}.DIFF"
 						rm "${CHECKSUM_TMP}.DIFF"
 					fi
+				else
+                                	if [ -n "${QUIET}" ]; then
+                                        	list_files | xargs -r -d "\n" "${alg}sum" -- > "${CHECKSUM_TMP}" 2>&1
+						if [ -s "${CHECKSUM_TMP}" ]; then
+							echo "# Directory: ${d}"
+							cat "${CHECKSUM_TMP}"
+						fi
+                                	else
+                                        	list_files | xargs -r -d "\n" "${alg}sum" -- | tee "${CHECKSUM_TMP}"
+                                	fi
 				fi
 
 			else	# create
