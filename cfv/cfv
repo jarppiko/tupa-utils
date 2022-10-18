@@ -13,7 +13,7 @@ help() {
     echo -e "\t-q\t\tDo not print checksums"
     echo -e "\t-c\t\tCheck existing checksums"
     echo -e "\t-u\t\tUpdate changed checksums"
-    echo -e "\t-f\t\tForce creation of a new checksum file even no changes detected"
+#    echo -e "\t-f\t\tForce creation of a new checksum file even no changes detected"
     echo -e "\t-d\t\tAdd date to previous checksum version"
     echo -e "\t-b DIR\tBase directory for the operations"
 #    echo -e "\t-A FILE\tFilename for aggregate file"
@@ -21,7 +21,7 @@ help() {
 }
 
 ### MODE logic
-# create (detault) 	: calculate all checksums, update ONLY if changed OR if FORCE
+# create (detault) 	: calculate all checksums
 # update    		: calculate only checksums for changed files since the last checksum
 # check			: check existing checksums
 
@@ -42,7 +42,7 @@ fi
 
 MODE="create"
 QUIET=
-FORCE=
+#FORCE=
 BASEDIR=
 DATE=
 CHECKSUM=".checksum"
@@ -68,9 +68,9 @@ do
     d)
         DATE="yes"
          ;;
-    f)
-        FORCE="yes"
-         ;;
+#    f)
+#        FORCE="yes"
+#         ;;
     a)
 	case "${OPTARG}" in
 		b3)
@@ -100,6 +100,9 @@ if (( ${#ALGO[@]} == 0 )); then
     ALGO+=( "b3" )
 fi
 
+for alg in "${ALGO[@]}"; do
+	builtin type -p "${alg}sum" &> /dev/null || error "${alg}sum not found in PATH"
+done
 
 # Read rest of the params
 shift "$(( "$OPTIND" - 1 ))"
