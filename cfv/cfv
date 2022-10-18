@@ -147,11 +147,11 @@ for dir in "${DIRS[@]}"; do
 			[ -f "${CHECKSUM_TMP}" ] && rm "${CHECKSUM_TMP}"
 
 			if [ "${MODE}" = "check" ]; then
- 				[ -f "${CHECKSUM_FILE}" ] || continue
+  				# [ -f "${CHECKSUM_FILE}" ] || continue
 
 				if [ -n "${QUIET}" ]; then
 					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check --quiet "${CHECKSUM_FILE}"  >> "${CHECKSUM_TMP}" 2>&1
-					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : not present in ${CHECKSUM_FILE}/' >> "${CHECKSUM_TMP}" 2>&1
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : checksum missing/' >> "${CHECKSUM_TMP}" 2>&1
 					if [ -s "${CHECKSUM_TMP}" ]; then
 						echo "# Directory: ${d}"
 						cat "${CHECKSUM_TMP}"
@@ -159,7 +159,7 @@ for dir in "${DIRS[@]}"; do
 					rm "${CHECKSUM_TMP}"
 				else
 					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check "${CHECKSUM_FILE}"
-					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : not present in ${CHECKSUM_FILE}/'
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : checksum missing/'
 				fi
 				continue
 			fi
