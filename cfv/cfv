@@ -1,11 +1,27 @@
 #!/bin/bash
 
-## Functions
+## cfv - script the check, create and update checksums over dir tree
+
+## MODE logic
+# create (detault) 	: calculate all checksums
+# update    		: calculate only checksums for changed files since the last checksum
+# check			: check existing checksums
 
 TUPA_UTILS="$(dirname "${0}")/tupa-utils"
 # shellcheck source=./tupa-utils
 { [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
 
+## Variables & constants
+MODE="create"
+QUIET=
+#FORCE=
+BASEDIR=
+DATE=
+CHECKSUM=".checksum"
+
+declare -a ALGO
+
+## Functions
 
 help() {
     echo "Usage: $(basename "$0") [-hqdcu] [-b DIR] DIR [DIR1 ...]"
@@ -20,11 +36,6 @@ help() {
     exit 0
 }
 
-### MODE logic
-# create (detault) 	: calculate all checksums
-# update    		: calculate only checksums for changed files since the last checksum
-# check			: check existing checksums
-
 # Print file modification time
 file_mdate() {
 	date -r "${1}" +"%Y%m%d"
@@ -33,21 +44,21 @@ file_mdate() {
 
 # print the files present in a checksum file in sorted order
 chksum_files() {
-	sed -E 's/([0-9a-f]+)[[:blank:]]+(.+)/\2/' -- "${1}" | sort
+	[ -f "${CHECKSUM_FILE}" ] && sed -E 's/([0-9a-f]+)[[:blank:]]+(.+)/\2/' -- "${1}" | sort
+}
+
+# usage: list_missing_files CHECKSUM_FILE
+# list files not in CHECKSUM_FILE in sorted order
+list_missing_files() {
+	(( "${#}" == 1 )) || error "list_missing_files() expects a single argument"
+	local CHECKSUM_FILE="${1}"
+	comm -23 <(find . -maxdepth 1 -type f ! -name "${CHECKSUM}.*" -printf '%P\n' | sort) \
+                 <( chksum_files  "${CHECKSUM_FILE}" )
 }
 
 if [ ${#} -eq 0 ]; then
     help
 fi
-
-MODE="create"
-QUIET=
-#FORCE=
-BASEDIR=
-DATE=
-CHECKSUM=".checksum"
-
-declare -a ALGO
 
 while getopts 'hqdcufb:a:' option
 do
@@ -96,29 +107,28 @@ do
     esac
 done
 
+# default algo
 if (( ${#ALGO[@]} == 0 )); then
     ALGO+=( "b3" )
 fi
 
+# check existence of checksum prog in PATH
 for alg in "${ALGO[@]}"; do
 	builtin type -p "${alg}sum" &> /dev/null || error "${alg}sum not found in PATH"
 done
 
-# Read rest of the params
+# Read rest of the params into DIRS
+if [ -n "${BASEDIR}" ]; then
+	pushd  "${BASEDIR}" > /dev/null || error "Cannot change into ${BASEDIR}" 
+fi
 shift "$(( "$OPTIND" - 1 ))"
-
 declare -a DIRS
-
 while test "$#" -gt 0; do
         if [ -d "${1}" ]; then
                 DIRS+=( "${1}" )
         fi
         shift
 done
-
-if [ -n "${BASEDIR}" ]; then
-	pushd  "${BASEDIR}" > /dev/null || error "Cannot change into ${BASEDIR}" 
-fi
 
 set -u
 
@@ -139,12 +149,17 @@ for dir in "${DIRS[@]}"; do
 			if [ "${MODE}" = "check" ]; then
  				[ -f "${CHECKSUM_FILE}" ] || continue
 
-				## TODO: QUIET logic for dir names
-
 				if [ -n "${QUIET}" ]; then
-					"${alg}sum"  --check --quiet "${CHECKSUM_FILE}"
+					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check --quiet "${CHECKSUM_FILE}"  >> "${CHECKSUM_TMP}" 2>&1
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : not present in ${CHECKSUM_FILE}/' >> "${CHECKSUM_TMP}" 2>&1
+					if [ -s "${CHECKSUM_TMP}" ]; then
+						echo "# Directory: ${d}"
+						cat "${CHECKSUM_TMP}"
+					fi
+					rm "${CHECKSUM_TMP}"
 				else
-					"${alg}sum"  --check "${CHECKSUM_FILE}"
+					[ -f "${CHECKSUM_FILE}" ] && "${alg}sum"  --check "${CHECKSUM_FILE}"
+					list_missing_files "${CHECKSUM_FILE}" | sed -e 's/$/ : not present in ${CHECKSUM_FILE}/'
 				fi
 				continue
 			fi
