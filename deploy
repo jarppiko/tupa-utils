@@ -1,10 +1,22 @@
-#!/bin/sh
+#!/bin/bash
 
 # install files
-TUPA_PREFIX="/usr/local/sbin"
+TUPA_PREFIX="/usr/local"
+
+[ "${#}" -ge 1 ] || ! echo "No arguments given" || exit 1
+
+USER=
+if [ "${1}" == "-u" ]; then
+	TUPA_PREFIX="${TUPA_PREFIX}/bin"
+	shift;
+	USER="yes"
+else
+	TUPA_PREFIX="${TUPA_PREFIX}/sbin"
+fi
 
 for f in $@; do
 	# echo "cp -iv \"${f}\" \"${TUPA_PREFIX}/$(basename ${f})"
 	cp -iv "${f}" "${TUPA_PREFIX}/$(basename ${f})"
+	[ -n "${USER}" ] && chmod 755 "${TUPA_PREFIX}/$(basename ${f})"
 done
 
