@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# update docker
+
+declare -a CONTAINERS
+CONTAINERS=( "unifi-controller" )
+
+for c in "${CONTAINERS[@]}"; do 
+	docker-update "${c}"
+done
