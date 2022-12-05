@@ -4,9 +4,11 @@ set -o errexit 		## Do not ignore failing commands
 
 ################################### Subs ##############################################
 
+MOUNT_OPTS="nosuid,nodev,noexec"
+
 ## Sleep 3 seconds and print "wait dots"
 do_sleep() {
-	echo -n "$1 "  | tee -a $TEMP 
+	echo -n "$1 "  | tee -a $TEMP
 	for i in 1 2 3 ; do
         	sleep 2s
         	echo -n "."  | tee -a $TEMP
@@ -24,18 +26,18 @@ check_backup_mount() {
 
 mount_backup_disk() {
 	if [[ -b $BACKUP_PART ]]; then 
-		if $( cryptsetup luksOpen  $BACKUP_PART $ENCRYPTED_DEV && mount /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
+		if $( cryptsetup luksOpen  $BACKUP_PART $ENCRYPTED_DEV && mount -o "${MOUNT_OPTS}" /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
 			BACKUP_MNT="/mnt/sbackup"
-			echo "Backing up to /mnt/sbackup/B" 
-		elif $( mount $BACKUP_PART /mnt/backup  2>> $TEMP ); then
+			echo "Backing up to /mnt/sbackup/B"
+		elif $( mount -o "${MOUNT_OPTS}" $BACKUP_PART /mnt/backup  2>> $TEMP ); then
 			BACKUP_MNT="/mnt/backup"
                         echo "Backing up to /mnt/backup/B"
 		fi
 	elif [[ -b $BACKUP_DISK ]]; then
-		if $( cryptsetup luksOpen $BACKUP_DISK $ENCRYPTED_DEV && mount /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
+		if $( cryptsetup luksOpen $BACKUP_DISK $ENCRYPTED_DEV && mount -o "${MOUNT_OPTS}" /dev/mapper/$ENCRYPTED_DEV /mnt/sbackup 2>> $TEMP ); then
                         BACKUP_MNT="/mnt/sbackup"
                         echo "Backing up to /mnt/sbackup/B"
-		elif $(	mount $BACKUP_DISK /mnt/backup  2>> $TEMP ); then
+		elif $(	mount -o "${MOUNT_OPTS}" $BACKUP_DISK /mnt/backup  2>> $TEMP ); then
                         BACKUP_MNT="/mnt/backup"
                         echo "Backing up to /mnt/backup/B"
 		fi
@@ -80,7 +82,7 @@ do_btrfs_snapshot() {
 		SNAPSHOT_NAME="@snapshot_$(basename ${SUBVOL})_${DATE}"
 		if [[ -d ${SNAPSHOT_BASE}/${SNAPSHOT_NAME} ]]; then
 			TIMENOW=$(date '+%T')
-			mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIMENOW}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed" 
+			mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIMENOW}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed"
 		fi
 
 		btrfs subvolume snapshot ${SUBVOL} "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
@@ -119,7 +121,8 @@ do_backup() {
 	echo "SRC: $SRC"  | tee -a $TEMP
 	echo "DST: ${DST_FULL}"  | tee -a $TEMP
 
-	LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE} 
+	# LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE}
+	LOG="${LOG}_$(basename $SRC)_${DATE}.log"
 
 	echo "--------------------------------------------------------"	 | tee -a $TEMP
 	if [[ -d "${DST_FULL}" ]]; then
@@ -132,16 +135,16 @@ do_backup() {
 		fi
 		do_sleep "Starting backing up $SRC"
 
-		if  $(is_btrfs) ; then 
+		if  $(is_btrfs) ; then
 			do_btrfs_snapshot "${DST_FULL}"
 			## 2014-10-18: --progress remoevd to make logs more readable
-			nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"  | tee -a $TEMP
+			nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"  | tee -a $TEMP
 			touch_stamp "$SRC"
-			sync 
+			sync
 		else
 			RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${DATE}/${DST}"
 			## 2014-10-18: --progress remoevd to make logs more readable
-                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"   | tee -a $TEMP
+                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}" | tee -a $TEMP
                         touch_stamp "$SRC"
                         sync
 		fi
@@ -160,7 +163,7 @@ do_backup_remote() {
         echo "SRC: $SRC"  | tee -a $TEMP
         echo "DST: ${DST_FULL}"  | tee -a $TEMP
 
-        LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE}
+        LOG="${LOG}_$(basename $SRC)_${DATE}.log"
 
         echo "--------------------------------------------------------"  | tee -a $TEMP
         if [[ -d "${DST_FULL}" ]]; then
@@ -176,13 +179,14 @@ do_backup_remote() {
                 if  $(is_btrfs) ; then
                         do_btrfs_snapshot "${DST_FULL}"
                         ## 2014-10-18: --progress remoevd to make logs more readable
-                        nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"  | tee -a $TEMP
+                        nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"  | tee -a $TEMP
                         touch_stamp "$SRC"
                         sync
                 else
                         RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${DATE}/${DST}"
                         ## 2014-10-18: --progress remoevd to make logs more readable
-                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "/home/backup/backup_$LOG"   | tee -a $TEMP                        touch_stamp "$SRC"
+                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"   | tee -a $TEMP 
+                        touch_stamp "$SRC"
                         sync
                 fi
 # BROKEN                verify_checksums "${DST_FULL}"
