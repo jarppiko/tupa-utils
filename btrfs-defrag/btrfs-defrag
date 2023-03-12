@@ -17,6 +17,8 @@ help() {
 	echo "Defragment a directory recursively. Default action is to list most defragmented files"
 	echo "Usage: $(basename "${0}") [-hf] [DIR]"
 	echo -e "\t-h\tDisplay help"
+
+	echo -e "\t-N INT\tDefragment/list files with more than INT fragments (default=500)"
 	echo -e "\t-f\tDefragment files"
 
 	exit 0
@@ -27,9 +29,10 @@ help() {
 DIR='.'
 unset DO_HELP
 unset DEFRAG
+N=500
 
-
-while getopts 'hf' option
+# shellcheck disable=SC2220
+while getopts 'hfN:' option
 do
     case "$option" in
     h)
@@ -38,6 +41,9 @@ do
     f)
 	DEFRAG=1
 	;;
+    N)
+        N="${OPTARG}"
+	;; 
     esac
 done
 
@@ -54,9 +60,9 @@ fi
 if [ -z ${DEFRAG} ]; then
 	# show most defragmented files
 	echo "Listing most defragmented files in ${DIR}"
-	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -F ' ' '$1 > 500' | sort -n -r
+	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -v limit="${N}" -F ' ' '$1 > limit' | sort -n
 else
 	# defragment files
 	echo "Defragmenting files in ${DIR}"
-	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -F ' ' '$1 > 500' | cut -d ' ' -f2 2>/dev/null | xargs -r btrfs "fi" defrag -f -v
+	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -v limit="${N}" -F ' ' '$1 > limit' | cut -d ' ' -f2 2>/dev/null | xargs -r btrfs "fi" defrag -f -v
 fi
