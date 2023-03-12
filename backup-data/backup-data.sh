@@ -3,18 +3,18 @@ set -o nounset 		## Error if undefined variable referred (which default to "")
 set -o errexit 		## Do not ignore failing commands
 
 ENCRYPTED_DEV=securebackup
-CHKSUM=.checksum.md5
+CHKSUM=.checksum.b3
 EXCLUDE_FILE=".exclude.rsync"
 TEMP="`mktemp  /tmp/BACKUP_USB.XXXXXX`"
 DATE=`date '+%F'`; readonly DATE
 LOG=~/backup_log_${DATE}.log
-BACKUP_DISK=/dev/sde
-BACKUP_PART=/dev/sde1
-TUPA_UTILS="/usr/local/src/tupa-utils"
+BACKUP_DISK=/dev/sdd
+BACKUP_PART=/dev/sdd1
+TUPA_UTILS="/usr/local/bin"
 
 ######################## EDIT ###################################################
 
-source ${TUPA_UTILS}/backup-data/backup-data.lib
+source ${TUPA_UTILS}/backup-data.lib
 
 ######################## MAIN() #################################################
 
@@ -43,11 +43,10 @@ echo "-------------------------------------------------------------" | tee -a $T
 
 ######################## What to backup #########################################
 
-# do_backup /home/jarno/Docs Docs
-# do_backup /home/jarno/backup/OneDrive OneDrive
-# do_backup /home/stuff/Pics Pics
+# do_backup_remote jarno@tupajumi:/home/stuff/Flac Flac
+# do_backup /mnt/d/Pics Pics
 
-umount_backup
+# umount_backup
 
 ###################### MAIL LOG ########################
 #echo "Mailing log ..." | tee -a $TEMP
