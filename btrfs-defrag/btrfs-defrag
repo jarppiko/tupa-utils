@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# backup btrfs subvol to another btrfs filesystem
+#
+## Version 2.0 specs
+# - user getopts()
+# - separate params for snaphot, old snapshot, backup dir, renaming, date postfix
+#
+# v2.0: syntax OK and tests passed
+
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+help() {
+	echo "Defragment a directory recursively. Default action is to list most defragmented files"
+	echo "Usage: $(basename "${0}") [-hf] [DIR]"
+	echo -e "\t-h\tDisplay help"
+	echo -e "\t-f\tDefragment files"
+
+	exit 0
+}
+
+
+## Params
+DIR='.'
+unset DO_HELP
+unset DEFRAG
+
+
+while getopts 'hf' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    f)
+	DEFRAG=1
+	;;
+    esac
+done
+
+shift $((OPTIND-1))
+OTHERARGS=( "$@" )
+
+if (( ${#OTHERARGS[@]} == 1 )); then
+	DIR="$1"
+fi
+
+#################
+
+
+if [ -z ${DEFRAG} ]; then
+	# show most defragmented files
+	echo "Listing most defragmented files in ${DIR}"
+	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -F ' ' '$1 > 500' | sort -n -r
+else
+	# defragment files
+	echo "Defragmenting files in ${DIR}"
+	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -F ' ' '$1 > 500' | cut -d ' ' -f2 2>/dev/null | xargs -r btrfs "fi" defrag -f -v
+fi
