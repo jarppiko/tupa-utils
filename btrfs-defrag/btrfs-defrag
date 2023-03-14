@@ -64,5 +64,5 @@ if [ -z ${DEFRAG} ]; then
 else
 	# defragment files
 	echo "Defragmenting files in ${DIR}"
-	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -v limit="${N}" -F ' ' '$1 > limit' | cut -d ' ' -f2 2>/dev/null | xargs -r btrfs "fi" defrag -f -v
+	find "${DIR}" -xdev -type f -print0 | xargs -0 filefrag 2>/dev/null | sed 's/^\(.*\): \([0-9]\+\) extent.*/\2 \1/' | awk -v limit="${N}" -F ' ' '$1 > limit' | cut -d ' ' -f2- 2>/dev/null | xargs -d '\n' -r btrfs "fi" defrag -f -v
 fi
