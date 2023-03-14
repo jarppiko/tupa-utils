@@ -48,7 +48,7 @@ mount_backup_disk() {
 }
 
 umount_backup() {
-	sync
+	# sync
 	do_sleep "Unmounting now"
 
 	umount $BACKUP_MNT && echo "  OK"  | tee -a $TEMP
@@ -140,13 +140,13 @@ do_backup() {
 			## 2014-10-18: --progress remoevd to make logs more readable
 			nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"  | tee -a $TEMP
 			touch_stamp "$SRC"
-			sync
+			#sync
 		else
-			RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${DATE}/${DST}"
+			local RSYNC_BACKUP_DIR="${BACKUP_ROOT}/snapshots/${DST}/${DATE}/"
 			## 2014-10-18: --progress remoevd to make logs more readable
                         nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}" | tee -a $TEMP
                         touch_stamp "$SRC"
-                        sync
+                        #sync
 		fi
 # BROKEN		verify_checksums "${DST_FULL}"
 	else
@@ -168,7 +168,7 @@ do_backup_remote() {
         echo "--------------------------------------------------------"  | tee -a $TEMP
         if [[ -d "${DST_FULL}" ]]; then
                 echo "backing up $SRC to ${DST_FULL}"  | tee -a $TEMP
-                print_stamp $(echo "$SRC" | cut -d : 2 )
+                print_stamp $(echo "$SRC" | cut -d : -f 2 )
                 EXCLUDE=""
                 #if [[ -f "${SRC}/${EXCLUDE_FILE}" ]]; then
                 #        EXCLUDE="--exclude-from=${SRC}/${EXCLUDE_FILE}"
@@ -181,13 +181,13 @@ do_backup_remote() {
                         ## 2014-10-18: --progress remoevd to make logs more readable
                         nice rsync -av ${EXCLUDE} --delete "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"  | tee -a $TEMP
                         touch_stamp "$SRC"
-                        sync
+                        # sync
                 else
-                        RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${DATE}/${DST}"
+			local RSYNC_BACKUP_DIR="${BACKUP_ROOT}/snapshots/${DST}/${DATE}"
                         ## 2014-10-18: --progress remoevd to make logs more readable
-                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"   | tee -a $TEMP 
+                        nice rsync -abv ${EXCLUDE} --delete --backup-dir="${RSYNC_BACKUP_DIR}/" "${SRC}/" "${DST_FULL}" | tee -a "${DST_FULL}/${LOG}"   | tee -a $TEMP 
                         touch_stamp "$SRC"
-                        sync
+                        # sync
                 fi
 # BROKEN                verify_checksums "${DST_FULL}"
         else
