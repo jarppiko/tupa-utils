@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# send btrfs subvols to another btrfs filesystem
+#
+## Version 2.0 specs
+# - user getopts()
+# - separate params for snaphot, old snapshot, backup dir, renaming, date postfix
+#
+# v2.0: syntax OK and tests passed
+
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+help() {
+	echo "btrfs send-receive subvolumes using parent volumes"
+	echo "Usage: $(basename "${0}") [-hf] [TARGET_DIR] [SNAPSHOT1 ..]"
+	echo -e "\t-h\tDisplay help"
+	echo -e "\t-f\tDo full send-receive for the first snapshot"
+
+	exit 0
+}
+
+
+## Params
+FULL=""
+
+# shellcheck disable=SC2220
+while getopts 'hf' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    f)
+         FULL='yes'
+         ;;
+    esac
+done
+
+shift $((OPTIND-1))
+ARGS=( "$@" )
+
+if (( ${#ARGS[@]} < 2 )); then
+	echo "ERROR: Too few parameters"
+	help
+fi
+
+TARGET_DIR="${ARGS[0]}"
+unset 'ARGS[0]'
+ARGS=( "${ARGS[@]}")
+
+# do full snapshot
+LEN=${#ARGS[@]}
+if [ -n "${FULL}" ]; then
+	# shellcheck disable=SC2004
+	if (( $LEN < 1)); then
+        	error "Too few arguments"
+         fi
+         btrfs send -v "${ARGS[0]}" | btrfs receive "${TARGET_DIR}"
+fi
+
+while /bin/true; do
+	LEN=${#ARGS[@]}
+	# shellcheck disable=SC2004
+	if (( $LEN <= 1 )); then
+		echo "Done"
+		break
+	fi
+	btrfs send -v -p "${ARGS[0]}" "${ARGS[1]}" | btrfs receive "${TARGET_DIR}"
+	unset 'ARGS[0]'
+	ARGS=( "${ARGS[@]}")
+done
