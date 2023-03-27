@@ -57,8 +57,9 @@ if [ -n "${FULL}" ]; then
 	# shellcheck disable=SC2004
 	if (( $LEN < 1)); then
         	error "Too few arguments"
-         fi
-         btrfs send -v "${ARGS[0]}" | btrfs receive "${TARGET_DIR}"
+        fi
+	echo "btrfs (full) send/receive: ${ARGS[0]} => ${TARGET_DIR}"
+        btrfs send -v "${ARGS[0]}" | btrfs receive "${TARGET_DIR}"
 fi
 
 while /bin/true; do
@@ -68,6 +69,7 @@ while /bin/true; do
 		echo "Done"
 		break
 	fi
+	echo "btrfs (partial) send/receive: (parent=${ARGS[0]}) ${ARGS[1]} => ${TARGET_DIR}"
 	btrfs send -v -p "${ARGS[0]}" "${ARGS[1]}" | btrfs receive "${TARGET_DIR}"
 	unset 'ARGS[0]'
 	ARGS=( "${ARGS[@]}")
