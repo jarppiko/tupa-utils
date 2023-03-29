@@ -120,7 +120,6 @@ if [[ -n "${SOURCE}" ]] && [[ -n  "${TARGET}" ]]; then
 	if [ -n "${QUIET}" ]; then
 		echo "Snapshotting ${SOURCE}"
 	fi
-	echo "DEBUG: $NAME"
 	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
 else
 
