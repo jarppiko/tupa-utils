@@ -13,7 +13,7 @@ TARGET=
 NAME=
 QUIET=""
 
-
+# shellcheck disable=SC1090
 if [ -f "${TUPA_CONFIG}" ]; then
 	. "${TUPA_CONFIG}"
 fi
@@ -38,12 +38,14 @@ echo -e "\t-q\t\tQuiet operations"
 echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
 echo -e "\t-s SOURCE\tSet SOURCE directory to snapshot"
 echo -e "\t-t TARGET\tSet TARGET directory to store the snapshot in"
-echo -e "\t-n NAME\tSet snapshot name"
-echo -e "\t-c FILE\tRead configuration from FILE"
+echo -e "\t-n NAME\t\tSet snapshot name"
+echo -e "\t-p y|q|m|w|d|h \tSet snapshot postfix"
+echo -e "\t-c FILE\t\tRead configuration from FILE"
 
 exit 0
 }
 
+# shellcheck disable=SC2220
 while getopts ':hc:b:s:t:n:p:q' option
 do
 	case "$option" in
