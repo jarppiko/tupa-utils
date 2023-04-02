@@ -137,6 +137,7 @@ fi
 for dir in "${DIRS[@]}"; do
 #	echo "DEBUG: ${dir}"
 	pushd "${dir}" > /dev/null || continue
+	echo "$dir:"
 	case "${ACTION}" in
 	list)
 		par2tool_update "${dir}"
