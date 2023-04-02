@@ -1,0 +1,181 @@
+#!/bin/bash
+
+## Helper for par2 command
+
+## Functions
+
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+help() {
+	echo "par2 helper to create and update parchive2 redundancy files"
+	echo "Usage: $(basename "${0}") [-hrclu] DIR [DIR1 ...]"
+	echo -e "\t-h\tDisplay help"
+	echo -e "\t-r\tPerform action recursively"
+	echo -e "\t-R\tCreate recursive archive including DIR subdirectories"
+
+	echo -e "\t-l\tList status by DIR"
+	echo -e "\t-u\tUpdate PAR2ARCHIVE in DIR"
+	echo -e "\t-c\tCreate PAR2ARCHIVE for DIR"
+
+
+	exit 0
+}
+
+
+par2file() {
+#	local DIR="${1}"
+	local PAR2FILE
+	PAR2FILE="$(find "${1}" -maxdepth 1 -type f -iname '*.par2' | sort  | head -n 1)"
+#	PAR2FILE="${PAR2FILE::-1}"
+	echo "${PAR2FILE}"
+}
+
+
+list_newer() {
+	find "$(dirname "${1}")" -maxdepth 1 -type f -newer "${1}" ! -iname "*.par2" ! -name ".*"
+}
+
+
+list_files() {
+	find "${1}" -maxdepth 1 -type f ! -iname "*.par2" ! -name ".*"
+}
+
+
+par2tool_update() {
+	# list status of dir
+	local DIR
+	local PAR2FILE
+	DIR="$(pwd)"
+	PAR2FILE="$(par2file "${DIR}")"
+	if [ ! -f "${PAR2FILE}" ]; then
+		if (( $(list_files "${1}" | wc -l) > 0 )); then
+			if [ "${ACTION}" == "update" ]; then
+				par2tool_create
+			else
+				echo "${DIR}: FAILED: No par2 file"
+			fi # if ACTION
+		fi
+	else
+		 if (( $(list_newer "${PAR2FILE}" | wc -l) > 0 )); then
+            if [ "${ACTION}" == "update" ]; then
+				 par2tool_create
+			else
+				echo "${DIR}: FAILED: Update needed"
+				if [ -z "${QUIET}" ]; then
+					list_newer "${PAR2FILE}"
+				fi
+			fi # if ACTION
+         else
+			echo "${DIR}: OK"
+		fi
+	fi # if PAR2FILE exists
+} # par2tool_list()
+
+
+
+par2tool_create() {
+	local DIR
+	DIR="$(pwd)"
+	if [ -z "${RECURSIVE_PAR2}" ]; then
+		find . -maxdepth 1 -type f -name "*.par2" -delete
+		par2create -m500 -u -r5 "$(basename "${DIR}").par2" ./*
+	else
+		find . -type f -name "*.par2" -delete
+		par2create -m500 -u -r5 -R "$(basename "${DIR}").par2" ./*
+	fi #  if RECURSIVE_PAR2
+}
+
+
+
+
+
+## Params
+RECURSIVE_PAR2=""
+RECURSIVE=""
+ACTION="list"
+QUIET=""
+
+# shellcheck disable=SC2220
+while getopts 'hrqcluR' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    r)
+         RECURSIVE='yes'
+         ;;
+    R)
+         RECURSIVE_PAR2='yes'
+		 RECURSIVE=""
+         ;;
+    q)
+         QUIET='--quiet'
+         ;;
+    l)
+         ACTION='list'
+         ;;
+    c)
+         ACTION='create'
+         ;;
+    u)
+         ACTION='update'
+         ;;
+    esac
+done
+
+shift $((OPTIND-1))
+DIRS=( "$@" )
+
+if (( ${#DIRS[@]} == 0 )); then
+	echo "ERROR: no DIR given"
+	help
+fi
+
+for dir in "${DIRS[@]}"; do
+#	echo "DEBUG: ${dir}"
+	pushd "${dir}" > /dev/null || continue
+	if [ -n "${RECURSIVE}" ]; then
+		while read -r d; do
+			pushd "${d}" > /dev/null || error "Could not change to dir: ${d}"
+	        case "${ACTION}" in
+    	    list)
+        	    par2tool_update "${d}"
+            	;;
+	        create)
+    	        par2tool_create "${d}"
+        	    ;;
+		    update)
+        	    par2tool_update "${d}"
+            	;;
+	        *)
+    	        error "unknown action ${ACTION}"
+        	    ;;
+	        esac
+			popd  > /dev/null || error "Could not return to previous dir"
+	    done < <(find . -type d)
+	else
+		## non-recursive
+		case "${ACTION}" in
+		list)
+			par2tool_update "${dir}"
+			;;
+		create)
+			par2tool_create "${dir}"
+			;;
+		update)
+			par2tool_update "${dir}"
+			;;
+		*)
+			error "unknown action ${ACTION}"
+			;;
+		esac
+
+	fi # if recursive 
+	popd  > /dev/null || error "Could not return to previous dir"
+done
+
+
