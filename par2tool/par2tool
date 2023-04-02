@@ -13,12 +13,12 @@ help() {
 	echo "par2 helper to create and update parchive2 redundancy files"
 	echo "Usage: $(basename "${0}") [-hrclu] DIR [DIR1 ...]"
 	echo -e "\t-h\tDisplay help"
-	echo -e "\t-r PERCENT\tRedundancy ratio% as whole integer"
+	echo -e "\t-r PERCENT\tRedundancy ratio% as whole integer (default 5)"
 	echo -e "\t-R\tCreate recursive archive including DIR subdirectories"
+
 	echo -e "\t-l\tList status by DIR"
 	echo -e "\t-u\tUpdate PAR2ARCHIVE in DIR"
 	echo -e "\t-c\tCreate PAR2ARCHIVE for DIR"
-
 
 	exit 0
 }
