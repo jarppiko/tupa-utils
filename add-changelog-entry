@@ -1,0 +1,19 @@
+#!/bin/bash
+FILE="/etc/Changelog"
+
+echo "Adding entry to $FILE. End with empty line."
+echo >> $FILE
+echo -n '******  ' >> $FILE
+date >> $FILE
+echo >> $FILE
+
+while (true); do  
+  read line
+  [[ "$line" == "" ]] && break
+  echo "- $line" >> $FILE
+#  echo -n " " >> $FILE
+done
+echo >> $FILE
+
+echo "------------  Changelog entry added -------------"
+grep -A 25 '*****' $FILE
