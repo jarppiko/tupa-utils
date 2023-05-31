@@ -4,8 +4,8 @@
 
 
 usage() {
-	echo "$(basename $0) is a program to trim archives named with paradigm YYYY-MM-DD[ymwd]"
-	echo "Usage: $(basename $0) [OPTIONS] FILENAME_STUB"
+	echo "$(basename "$0") is a program to trim archives named with paradigm YYYY-MM-DD[ymwd]"
+	echo "Usage: $(basename "$0") [OPTIONS] FILENAME_STUB"
 	echo -e "\t-y|--year=N\tSet yearly archives to keep"
 	echo -e "\t-m|--month=N\tSet monthly archives to keep"
 	echo -e "\t-w|--week=N\tSet weekly archives to keep"
@@ -26,8 +26,10 @@ find_trim_list() {
     local TARGET="$1"
     local MODE="$2"
     local KEEP="$3"
-    local DIR=$(dirname "$TARGET")
-    local BASE=$(basename "$TARGET")
+    local DIR
+    local BASE
+	DIR=$(dirname "$TARGET")
+	BASE=$(basename "$TARGET")
     debug "DIR: $DIR"
     debug "BASE: $BASE"
     debug "MODE: $MODE"
@@ -37,7 +39,7 @@ find_trim_list() {
     i=0
     while IFS= read -r -d '' file; do
         trim_targets[$i]="$file"
-        let i++
+        (( i++ ))
     done < <(find "${DIR}/"  -maxdepth 1 -regextype posix-egrep -regex "${TARGET}.*?[0-9_:-]{8,}${MODE}.*" -print0 | sort -rz)
 
     if [ "${KEEP}" -ge 0 ]; then
@@ -45,7 +47,7 @@ find_trim_list() {
          debug "KEEP: $KEEP"
          debug "#trim_targets: ${#trim_targets[@]}"
 
-         for ((i=$((${#trim_targets[@]}-1));i>=${KEEP};i--)); do
+         for ((i=$((${#trim_targets[@]}-1));i>=KEEP;i--)); do
              debug "Array read: $i |${trim_targets[$i]}|"
              trim_list[${#trim_list[@]}]="${trim_targets[$i]}"
          done
@@ -54,8 +56,10 @@ find_trim_list() {
 
 trim_list_dry_run() {
     local TARGET="$1"
-    local DIR=$(dirname "$TARGET")
-    local BASE=$(basename "$TARGET")
+    local DIR
+    local BASE
+	DIR=$(dirname "$TARGET")
+	BASE=$(basename "$TARGET")
     debug "DIR: $DIR"
     debug "BASE: $BASE"
     debug "BTRFS $BTRFS"
@@ -67,7 +71,7 @@ trim_list_dry_run() {
         echo "${DIR}: ${#trim_list[@]} archive(s) require trimmming"
         sleep 1s
 
-        if [ -n ${BTRFS} ]; then
+        if [ -n "${BTRFS}" ]; then
             for t in "${trim_list[@]}"; do
                echo "btrfs subvolume delete $t"
             done
@@ -84,8 +88,10 @@ trim_list_dry_run() {
 ## Actually trim the archives
 trim_list_run() {
     local TARGET="$1"
-    local DIR=$(dirname "$TARGET")
-    local BASE=$(basename "$TARGET")
+    local DIR
+    local BASE
+	DIR=$(dirname "$TARGET")
+	BASE=$(basename "$TARGET")
     debug "DIR: $DIR"
     debug "BASE: $BASE"
     debug "BTRFS $BTRFS"
@@ -94,7 +100,7 @@ trim_list_run() {
         echo "${DIR}: Trimming ${#trim_list[@]} archives and DELETING DATA. Press Ctrl+C to cancel."
         sleep 3s
 
-        if [ -n ${BTRFS} ]; then
+        if [ -n "${BTRFS}" ]; then
             for t in "${trim_list[@]}"; do
                 btrfs subvolume delete "$t"
             done
