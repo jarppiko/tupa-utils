@@ -11,7 +11,7 @@ TUPA_UTILS="$(dirname "${0}")/tupa-utils"
 
 help() {
 	echo "par2 helper to create and update parchive2 redundancy files"
-	echo "Usage: $(basename "${0}") [-hrclu] DIR [DIR1 ...]"
+	echo "Usage: $(basename "${0}") [-hRrclu] DIR [DIR1 ...]"
 	echo -e "\t-h\tDisplay help"
 	echo -e "\t-r PERCENT\tRedundancy ratio% as whole integer (default 5)"
 	echo -e "\t-R\tCreate recursive archive including DIR subdirectories"
