@@ -1,0 +1,100 @@
+#!/bin/bash
+
+SOURCE=
+TARGET=
+QUIET=""
+POSTFIX=""
+RW=""
+
+DATE="$(date '+%F')"
+
+# man date:
+#	%u     day of week (1..7); 1 is Monday
+#	%d     day of month (e.g., 01)
+#	%j     day of year (001..366)
+#	%-     removes padding (spaces or zeroes)
+
+
+help() {
+
+echo "Usage: $(basename "$0") [-h|q|w] SOURCE TARGET"
+echo -e "\t-h\t\tDisplay help"
+echo -e "\t-q\t\tQuiet operations"
+echo -e "\t-w\t\tTake R/W snapshot"
+echo -e "\t-p y|q|m|w|d|h \tSet snapshot postfix"
+
+exit 0
+}
+
+
+error() {
+	echo "$1"
+	exit 1
+}
+
+# shellcheck disable=SC2220
+while getopts 'hwp:q' option
+do
+	case "$option" in
+		h)
+			help
+		;;
+		q)
+			QUIET="Y"
+		;;
+		w)
+			RW="y"
+		;;
+		p)
+			case "${OPTARG}" in
+				y) POSTFIX="y";;
+				m) POSTFIX="m";;
+				q) POSTFIX="q";;
+				w) POSTFIX="w";;
+				d) POSTFIX="d";;
+				h)
+				  HOUR="$(date '+%H%M')"
+				  POSTFIX="_${HOUR}h" 
+				;;
+				*) echo "invalid -p option: ${OPTARG}"
+			esac
+		;;
+	esac
+done
+
+# Read rest of the params
+shift "$(( "$OPTIND" - 1 ))"
+
+if [[ "$#" -ne 2 ]]; then
+	echo "Incorrect number of arguments"
+	help
+	exit 1
+fi
+
+SOURCE="${1}"
+TARGET="${2}"
+
+
+if [ -z "${POSTFIX}" ]; then
+	POSTFIX="d"
+	if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
+	if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
+	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
+fi
+
+TARGET_DIR="$(dirname "${TARGET}")"
+
+if [[ ! -d "${TARGET_DIR}"  ]]; then
+	mkdir -p "${TARGET_DIR}" || error "Could not create target dir: ${TARGET_DIR}"
+fi
+
+if [[ ! -w "${TARGET_DIR}"  ]]; then
+	error  "Cannot write to target dir: ${TARGET_DIR}"
+fi
+
+
+if [[ -z "${RW}" ]]; then
+	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}_${DATE}${POSTFIX}"
+else
+	btrfs subvolume snapshot "${SOURCE}" "${TARGET}_${DATE}${POSTFIX}"
+fi
