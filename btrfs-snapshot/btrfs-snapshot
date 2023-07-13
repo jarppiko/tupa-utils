@@ -1,24 +1,11 @@
 #!/bin/bash
 
-# Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR  (e.g. /home/backup/localhost/Flac)
-# Changelog
-# 2014-10-18: changed snapshots to readonly (-r option)
-# 2021-08-07: rewrite 
-
-TUPA_CONFIG="${HOME}/.config/tupa-utils"
-
-BACKUP_ROOT=/home/backup/localhost
 SOURCE=
 TARGET=
-NAME=
-QUIET=""
-
-# shellcheck disable=SC1090
-if [ -f "${TUPA_CONFIG}" ]; then
-	. "${TUPA_CONFIG}"
-fi
-
-declare -a DIRS
+#QUIET=""
+POSTFIX=""
+RW=""
+BACKUP_ROOT=
 
 DATE="$(date '+%F')"
 
@@ -28,45 +15,40 @@ DATE="$(date '+%F')"
 #	%j     day of year (001..366)
 #	%-     removes padding (spaces or zeroes)
 
-POSTFIX=""
 
 help() {
 
-echo "Usage: $(basename "$0") [-h|q] [-c CONFGIG_FILE] [-b BACKUP_ROOT] [-s SOURCE] [-t TARGET] [-n NAME] [DIR DIR1 ...]"
+echo "Usage: $(basename "$0") [-h|q|w] [-b BACKUP_ROOT] SOURCE TARGET"
 echo -e "\t-h\t\tDisplay help"
 echo -e "\t-q\t\tQuiet operations"
-echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
-echo -e "\t-s SOURCE\tSet SOURCE directory to snapshot"
-echo -e "\t-t TARGET\tSet TARGET directory to store the snapshot in"
-echo -e "\t-n NAME\t\tSet snapshot name"
+echo -e "\t-w\t\tTake R/W snapshot"
 echo -e "\t-p y|q|m|w|d|h \tSet snapshot postfix"
-echo -e "\t-c FILE\t\tRead configuration from FILE"
+echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
+}
 
-exit 0
+
+error() {
+	echo "$1"
+	exit 1
 }
 
 # shellcheck disable=SC2220
-while getopts ':hc:b:s:t:n:p:q' option
+while getopts 'hwb:p:' option
 do
 	case "$option" in
 		h)
 			help
+			exit 0
 		;;
-		q)
-			QUIET="Y"
+#		q)
+#			QUIET="Y"
+#		;;
+		w)
+			RW="y"
 		;;
-		b)
-			BACKUP_ROOT="${OPTARG}"
-		;;
-		s)
-			SOURCE="${OPTARG}"
-		;;
-		t)
-			TARGET="${OPTARG}"
-		;;
-		n)
-			NAME="${OPTARG}"
-		;;
+        b)
+            BACKUP_ROOT="${OPTARG}"
+        ;;
 		p)
 			case "${OPTARG}" in
 				y) POSTFIX="y";;
@@ -81,25 +63,31 @@ do
 				*) echo "invalid -p option: ${OPTARG}"
 			esac
 		;;
-	    	c)
-			if [ -f "${OPTARG}" ]; then
-				while IFS= read -r DIR; do
-					DIRS+=( "${DIR}" )
-				done < "${OPTARG}"
-			fi
-		;;
 	esac
 done
 
 # Read rest of the params
 shift "$(( "$OPTIND" - 1 ))"
 
-while test "$#" -gt 0; do
-	if [ -d "${1}" ]; then
-		DIRS+=( "${1}" )
-	fi
-	shift
-done
+if [[ "$#" -ne 2 ]]; then 
+# || { [[ "$#" -ne 1 ]] && [[ -n "${BACKUP_ROOT}" ]] ;}; then
+	SOURCE="${1}"
+	TARGET="${2}"
+
+elif [[ "$#" -ne 1 ]] && [[ -n "${BACKUP_ROOT}" ]]; then 
+	SOURCE="${1}"
+	BASENAME="$(basename "${SOURCE}")"
+	TARGET="${BASENAME}/@snapshot_${BASENAME}"
+
+else
+	echo "Incorrect number of arguments"
+	help
+	exit 1
+fi
+
+if [[ -n "${BACKUP_ROOT}" ]] ; then
+	TARGET="${BACKUP_ROOT}/${TARGET}"
+fi
 
 if [ -z "${POSTFIX}" ]; then
 	POSTFIX="d"
@@ -108,29 +96,20 @@ if [ -z "${POSTFIX}" ]; then
 	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
 fi
 
-[  -n "${SOURCE}" ]; SOURCE_EXISTS=$?
-[  -n "${TARGET}" ]; TARGET_EXISTS=$?
-if [[ "${SOURCE_EXISTS}" -ne "${TARGET_EXISTS}" ]]; then
-	error "If SOURCE or TARGET has been set, also the other one has to be set"
+TARGET="${TARGET}_${DATE}${POSTFIX}"
+TARGET_DIR="$(dirname "${TARGET}")"
+
+if [[ ! -d "${TARGET_DIR}"  ]]; then
+	mkdir -p "${TARGET_DIR}" || error "Could not create target dir: ${TARGET_DIR}"
+fi
+
+if [[ ! -w "${TARGET_DIR}"  ]]; then
+	error  "Cannot write to target dir: ${TARGET_DIR}"
 fi
 
 
-if [[ -n "${SOURCE}" ]] && [[ -n  "${TARGET}" ]]; then
-	if [[ -z "${NAME}" ]]; then
-		NAME="$(basename "${SOURCE}")"
-	fi
-	if [ -n "${QUIET}" ]; then
-		echo "Snapshotting ${SOURCE}"
-	fi
-	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+if [[ -z "${RW}" ]]; then
+	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}"
 else
-
-	for dir in "${DIRS[@]}"; do
-		NAME="$(basename "$dir")"
-		if [ -n "${QUIET}" ]; then
-			echo "Snapshotting ${dir}"
-		fi
-		btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
-	done
-
+	btrfs subvolume snapshot "${SOURCE}" "${TARGET}"
 fi

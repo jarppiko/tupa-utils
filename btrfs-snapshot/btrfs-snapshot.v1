@@ -1,0 +1,136 @@
+#!/bin/bash
+
+# Makes READONLY btrfs snapshots to BACKUP_ROOT/DIR  (e.g. /home/backup/localhost/Flac)
+# Changelog
+# 2014-10-18: changed snapshots to readonly (-r option)
+# 2021-08-07: rewrite 
+
+TUPA_CONFIG="${HOME}/.config/tupa-utils"
+
+BACKUP_ROOT=/home/backup/localhost
+SOURCE=
+TARGET=
+NAME=
+QUIET=""
+
+# shellcheck disable=SC1090
+if [ -f "${TUPA_CONFIG}" ]; then
+	. "${TUPA_CONFIG}"
+fi
+
+declare -a DIRS
+
+DATE="$(date '+%F')"
+
+# man date:
+#	%u     day of week (1..7); 1 is Monday
+#	%d     day of month (e.g., 01)
+#	%j     day of year (001..366)
+#	%-     removes padding (spaces or zeroes)
+
+POSTFIX=""
+
+help() {
+
+echo "Usage: $(basename "$0") [-h|q] [-c CONFGIG_FILE] [-b BACKUP_ROOT] [-s SOURCE] [-t TARGET] [-n NAME] [DIR DIR1 ...]"
+echo -e "\t-h\t\tDisplay help"
+echo -e "\t-q\t\tQuiet operations"
+echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
+echo -e "\t-s SOURCE\tSet SOURCE directory to snapshot"
+echo -e "\t-t TARGET\tSet TARGET directory to store the snapshot in"
+echo -e "\t-n NAME\t\tSet snapshot name"
+echo -e "\t-p y|q|m|w|d|h \tSet snapshot postfix"
+echo -e "\t-c FILE\t\tRead configuration from FILE"
+
+exit 0
+}
+
+# shellcheck disable=SC2220
+while getopts ':hc:b:s:t:n:p:q' option
+do
+	case "$option" in
+		h)
+			help
+		;;
+		q)
+			QUIET="Y"
+		;;
+		b)
+			BACKUP_ROOT="${OPTARG}"
+		;;
+		s)
+			SOURCE="${OPTARG}"
+		;;
+		t)
+			TARGET="${OPTARG}"
+		;;
+		n)
+			NAME="${OPTARG}"
+		;;
+		p)
+			case "${OPTARG}" in
+				y) POSTFIX="y";;
+				m) POSTFIX="m";;
+				q) POSTFIX="q";;
+				w) POSTFIX="w";;
+				d) POSTFIX="d";;
+				h)
+				  HOUR="$(date '+%H%M')"
+				  POSTFIX="_${HOUR}h" 
+				;;
+				*) echo "invalid -p option: ${OPTARG}"
+			esac
+		;;
+	    	c)
+			if [ -f "${OPTARG}" ]; then
+				while IFS= read -r DIR; do
+					DIRS+=( "${DIR}" )
+				done < "${OPTARG}"
+			fi
+		;;
+	esac
+done
+
+# Read rest of the params
+shift "$(( "$OPTIND" - 1 ))"
+
+while test "$#" -gt 0; do
+	if [ -d "${1}" ]; then
+		DIRS+=( "${1}" )
+	fi
+	shift
+done
+
+if [ -z "${POSTFIX}" ]; then
+	POSTFIX="d"
+	if [ "$(date --date "$DATE" +%-u)" -eq 7 ]; then POSTFIX="w"; fi
+	if [ "$(date --date "$DATE" +%-d)" -eq 1 ]; then POSTFIX="m"; fi
+	if [ "$(date --date "$DATE" +%-j)" -eq 1 ]; then POSTFIX="y"; fi
+fi
+
+[  -n "${SOURCE}" ]; SOURCE_EXISTS=$?
+[  -n "${TARGET}" ]; TARGET_EXISTS=$?
+if [[ "${SOURCE_EXISTS}" -ne "${TARGET_EXISTS}" ]]; then
+	error "If SOURCE or TARGET has been set, also the other one has to be set"
+fi
+
+
+if [[ -n "${SOURCE}" ]] && [[ -n  "${TARGET}" ]]; then
+	if [[ -z "${NAME}" ]]; then
+		NAME="$(basename "${SOURCE}")"
+	fi
+	if [ -n "${QUIET}" ]; then
+		echo "Snapshotting ${SOURCE}"
+	fi
+	btrfs subvolume snapshot -r "${SOURCE}" "${TARGET}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+else
+
+	for dir in "${DIRS[@]}"; do
+		NAME="$(basename "$dir")"
+		if [ -n "${QUIET}" ]; then
+			echo "Snapshotting ${dir}"
+		fi
+		btrfs subvolume snapshot -r "${dir}" "${BACKUP_ROOT}/${NAME}/@snapshot_${NAME}_${DATE}${POSTFIX}"
+	done
+
+fi
