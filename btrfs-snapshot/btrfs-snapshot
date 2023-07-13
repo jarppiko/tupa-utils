@@ -69,12 +69,12 @@ done
 # Read rest of the params
 shift "$(( "$OPTIND" - 1 ))"
 
-if [[ "$#" -ne 2 ]]; then 
+if [[ "$#" -eq 2 ]]; then 
 # || { [[ "$#" -ne 1 ]] && [[ -n "${BACKUP_ROOT}" ]] ;}; then
 	SOURCE="${1}"
 	TARGET="${2}"
 
-elif [[ "$#" -ne 1 ]] && [[ -n "${BACKUP_ROOT}" ]]; then 
+elif [[ "$#" -eq 1 ]] && [[ -n "${BACKUP_ROOT}" ]]; then 
 	SOURCE="${1}"
 	BASENAME="$(basename "${SOURCE}")"
 	TARGET="${BASENAME}/@snapshot_${BASENAME}"
