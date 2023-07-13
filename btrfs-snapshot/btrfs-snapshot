@@ -20,7 +20,7 @@ help() {
 
 echo "Usage: $(basename "$0") [-h|q|w] [-b BACKUP_ROOT] SOURCE TARGET"
 echo -e "\t-h\t\tDisplay help"
-echo -e "\t-q\t\tQuiet operations"
+#echo -e "\t-q\t\tQuiet operations"
 echo -e "\t-w\t\tTake R/W snapshot"
 echo -e "\t-p y|q|m|w|d|h \tSet snapshot postfix"
 echo -e "\t-b BACKUP_ROOT\tSet backup root directory"
