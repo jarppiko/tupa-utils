@@ -6,6 +6,6 @@ fi
 
 APP="$1"
 
-systemctl stop --user "podman-pod@${APP}.service" || exit 2
+systemctl stop --user "pod@${APP}.service" || exit 2
 ~/"init_pod_${APP}" || exit 3
-systemctl start --user "podman-pod@${APP}.service" || exit 4
+systemctl start --user "pod@${APP}.service" || exit 4
