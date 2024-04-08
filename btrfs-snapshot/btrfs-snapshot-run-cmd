@@ -72,7 +72,7 @@ if [ -d "${CURRENT}" ]; then
 	mv "${CURRENT}" "${BASE}-${CURRENT_SFX}" || error "could not rename old current: ${CURRENT}"
 fi
 
-btrfs subvolume snapshot "${SRC}" "${CURRENT}"  || error "could not snapshot ${SRC} to ${CURRENT}"
+btrfs subvolume snapshot -r "${SRC}" "${CURRENT}"  || error "could not snapshot ${SRC} to ${CURRENT}"
 
 
 if (( $# > 0 )); then
