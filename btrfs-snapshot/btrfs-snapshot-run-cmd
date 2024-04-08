@@ -1,0 +1,76 @@
+#!/bin/bash
+
+help() {
+        echo "$(basename "$0") is a script to btrfs-snapshot a subvolume and run a command from the snapshot root"
+        echo "Usage: $(basename "$0") SOURCE SNAPSHOT_BASE [CMD [ARGS..]]"
+        echo -e "\t-h|--help\tSee usage instructions"
+	exit 1
+}
+
+
+## Functions
+TUPA_UTILS="$(dirname "${0}")/tupa-utils"
+# shellcheck source=./tupa-utils
+{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
+
+
+## PARAMS
+
+unset SRC
+unset BASE
+
+if (( $# < 2 )); then
+    help
+fi
+
+while getopts 'h' option
+do
+    case "$option" in
+    h)
+         help
+         ;;
+    *)
+        echo "Invalid argument received."
+        help
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+OTHERARGS=( "$@" )
+
+if (( ${#OTHERARGS[@]} < 2 )); then
+   echo "Invalid arguments given. SOURCE and/or SNAPSHOT_BASE are missing"
+   help
+fi
+
+
+SRC="$1"
+BASE="$2"
+
+shift 2
+
+CURRENT="${BASE}-current"
+
+# if CURRENT exists, rename it
+if [ -d "${CURRENT}" ]; then
+
+	CURRENT_DATE="$(date -r "${CURRENT}" '+%F')"
+	CURRENT_SFX="$(get_date_sfx "${CURRENT_DATE}")"
+
+	if [ -d "${BASE}-${CURRENT_SFX}" ]; then
+		# shellcheck disable=SC2119
+		CURRENT_SFX="${CURRENT_SFX-$(get_rand)}"
+	fi
+
+	mv "${CURRENT}" "${BASE}-${CURRENT_SFX}" || error "could not rename old current: ${CURRENT}"
+fi
+
+btrfs subvolume snapshot "${SRC}" "${CURRENT}"  || error "could not snapshot ${SRC} to ${CURRENT}"
+
+
+if (( $# > 0 )); then
+	cd "${CURRENT}" || error "could not cd to ${CURRENT}"
+
+	"$@"
+fi
