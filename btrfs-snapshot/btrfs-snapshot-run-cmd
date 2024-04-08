@@ -18,6 +18,7 @@ TUPA_UTILS="$(dirname "${0}")/tupa-utils"
 
 unset SRC
 unset BASE
+#unset DEBUG
 
 if (( $# < 2 )); then
     help
@@ -26,6 +27,9 @@ fi
 while getopts 'h' option
 do
     case "$option" in
+ #   d)
+ #   	DEBUG=1
+ #   	;;
     h)
          help
          ;;
@@ -55,12 +59,14 @@ CURRENT="${BASE}-current"
 # if CURRENT exists, rename it
 if [ -d "${CURRENT}" ]; then
 
-	CURRENT_DATE="$(date -r "${CURRENT}" '+%F')"
+	shopt -s lastpipe
+	btrfs subvol show "${CURRENT}" | grep 'Creation time:' | cut -d \  -f 3 | read -r CURRENT_DATE
+	shopt -u lastpipe
 	CURRENT_SFX="$(get_date_sfx "${CURRENT_DATE}")"
 
 	if [ -d "${BASE}-${CURRENT_SFX}" ]; then
 		# shellcheck disable=SC2119
-		CURRENT_SFX="${CURRENT_SFX-$(get_rand)}"
+		CURRENT_SFX="${CURRENT_SFX}-$(get_rand)"
 	fi
 
 	mv "${CURRENT}" "${BASE}-${CURRENT_SFX}" || error "could not rename old current: ${CURRENT}"
