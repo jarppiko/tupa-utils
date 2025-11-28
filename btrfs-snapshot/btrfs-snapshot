@@ -92,6 +92,11 @@ if [ -z "${POSTFIX}" ]; then
 fi
 
 TARGET="${TARGET}_${DATE}${POSTFIX}"
+
+if [[ -d  "${TARGET}" ]]; then
+  error "snapshot exists: ${TARGET}"
+fi
+
 TARGET_DIR="$(dirname "${TARGET}")"
 
 if [[ ! -d "${TARGET_DIR}"  ]]; then
