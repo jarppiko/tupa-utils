@@ -1,8 +1,54 @@
 #!/usr/bin/env bash
 
 spinner() {
-  # Frames for 12-step clock spinner
-  local frames=( "🕛" "🕐" "🕑" "🕒" "🕓" "🕔" "🕕" "🕖" "🕗" "🕘" "🕙" "🕚" )
+
+case "${1}" in
+  dots)
+    local frames=('⠁' '⠂' '⠄' '⡀' '⢀' '⠠' '⠐' '⠈')
+    ;;
+  lines)
+    local frames=('-' "\\" '|' '/')
+    ;;
+  hbar)
+    local frames=('▁' '▂' '▃' '▄' '▅' '▆' '▇' '█' '▇' '▆' '▅' '▄' '▃' '▂' '▁')
+    ;;
+  vbar)
+    local frames=('▉' '▊' '▋' '▌' '▍' '▎' '▏' '▎' '▍' '▌' '▋' '▊' '▉')
+    ;;
+  arrows)
+    local frames=('←' '↖' '↑' '↗' '→' '↘' '↓' '↙')
+    ;;
+  cubes)
+    local frames=('▖' '▘' '▝' '▗')
+    ;;
+  corners)
+    local frames=('┤' '┘' '┴' '└' '├' '┌' '┬' '┐')
+    ;;
+  triangles)
+    local frames=('◢' '◣' '◤' '◥')
+    ;;
+  pies)
+    local frames=('◴' '◷' '◶' '◵')
+    ;;
+  halfs)
+    local frames=('◐' '◓' '◑' '◒')
+    ;;
+  digi)
+    local frames=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
+    ;;
+  clock)
+    local frames=( "🕛" "🕐" "🕑" "🕒" "🕓" "🕔" "🕕" "🕖" "🕗" "🕘" "🕙" "🕚" )
+    ;;
+  --help)
+    print "Usage: COMMAND | pipe-spinner [MODE]"
+    exit 1
+    ;;
+  *)
+    local frames=('-' "\\" '|' '/')
+    ;;
+esac
+
+
   local delay=0.1
   local i=0
 
@@ -34,4 +80,4 @@ spinner() {
   return "$cat_rc"
 }
 
-spinner
+spinner "$@"
