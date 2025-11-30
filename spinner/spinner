@@ -51,14 +51,6 @@ function spinner() {
     local spin='┤┘┴└├┌┬┐'
     local charwidth=3
     ;;
-  triangles)
-    local spin='◢◣◤◥'
-    local charwidth=3
-    ;;
-  pies)
-    local spin='◴◷◶◵'
-    local charwidth=3
-    ;;
   halfs)
     local spin='◐◓◑◒'
     local charwidth=3
@@ -89,12 +81,17 @@ function spinner() {
 
 MODE="$1"
 case "${MODE}" in
-  help)
-    print "Usage: spinner [MODE] COMMAND"
+
+    "--help")
+    printf "Usage: spinner [MODE] COMMAND [ARGS]\n" >&2
+    printf "  MODE: dots | lines | hbar | vbar | arrows | cubes | corners | halfs | digi | clock\n" >&2
+    exit 1
     ;;
+
   dots|lines|hbar|vbar|arrows|cubes|corners|triangles|pies|halfs|digi|clock)
     shift
     ;;
+
   *)
   MODE="lines"
   ;;
