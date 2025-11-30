@@ -24,12 +24,6 @@ case "${1}" in
   corners)
     local frames=('┤' '┘' '┴' '└' '├' '┌' '┬' '┐')
     ;;
-  triangles)
-    local frames=('◢' '◣' '◤' '◥')
-    ;;
-  pies)
-    local frames=('◴' '◷' '◶' '◵')
-    ;;
   halfs)
     local frames=('◐' '◓' '◑' '◒')
     ;;
@@ -39,8 +33,9 @@ case "${1}" in
   clock)
     local frames=( "🕛" "🕐" "🕑" "🕒" "🕓" "🕔" "🕕" "🕖" "🕗" "🕘" "🕙" "🕚" )
     ;;
-  --help)
-    print "Usage: COMMAND | pipe-spinner [MODE]"
+  "--help")
+    printf "Usage: COMMAND | pipe-spinner [MODE]\n" >&2
+    printf "  MODE: dots | lines | hbar | vbar | arrows | cubes | corners | halfs | digi | clock\n" >&2
     exit 1
     ;;
   *)
