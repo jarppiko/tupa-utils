@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+spinner() {
+  # Frames for 12-step clock spinner
+  local frames=( "🕛" "🕐" "🕑" "🕒" "🕓" "🕔" "🕕" "🕖" "🕗" "🕘" "🕙" "🕚" )
+  local delay=0.1
+  local i=0
+
+  # Hide cursor (ignore errors if tput not available)
+  tput civis 2>/dev/null || true
+
+  # Background animation loop on stderr
+  {
+    while :; do
+      printf '\r%s ' "${frames[i]}" >&2
+      i=$(( (i + 1) % ${#frames[@]} ))
+      sleep "$delay"
+    done
+  } &
+  local spid=$!
+
+  # Main job: forward stdin → stdout
+  cat
+  local cat_rc=$?
+
+  # Stop spinner
+  kill "$spid" 2>/dev/null || true
+  wait "$spid" 2>/dev/null || true
+
+  # Clear spinner line and restore cursor
+  printf '\r   \r' >&2
+  tput cnorm 2>/dev/null || true
+
+  return "$cat_rc"
+}
+
+spinner
