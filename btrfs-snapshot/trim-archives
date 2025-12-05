@@ -38,7 +38,7 @@ find_trim_list() {
     declare -a trim_targets
     i=0
     while IFS= read -r -d '' file; do
-        trim_targets[$i]="$file"
+        trim_targets[i]="$file"
         (( i++ ))
     done < <(find "${DIR}/"  -maxdepth 1 -regextype posix-egrep -regex "${TARGET}.*?[0-9_:-]{8,}${MODE}.*" -print0 | sort -rz)
 
