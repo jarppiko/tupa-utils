@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # set directory access rights 
 
@@ -28,7 +28,7 @@ F_GROUP="$3"
 D_PERM="$4"
 F_PERM="$5"
 
-test -d "$DIR" || { echo "Error, $DIR does not exist" && exit 1; }
+test -d "$DIR" || { echo "ERROR: $DIR does not exist" && exit 1; }
 
 find "$DIR" -type d ! -perm "${D_PERM}" -print0 | xargs -r0 chmod "${D_PERM}"
 find "$DIR" -type f ! -perm "${F_PERM}" -print0 | xargs -r0 chmod "${F_PERM}"
