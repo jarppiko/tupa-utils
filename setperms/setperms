@@ -2,6 +2,8 @@
 
 # set directory access rights 
 
+VERSION="0.1.0"
+
 set -o nounset
 
 PROG="$(basename "$0")"
@@ -9,7 +11,9 @@ PROG="$(basename "$0")"
 ## functions
 
 usage() {
-	echo "Usage $PROG DIR USER GROUP DIR_PERMS FILE_PERMS"
+	echo -e "Usage $PROG DIR USER GROUP DIR_PERMS FILE_PERMS"
+	echo -e ""
+	echo -e "Version: $VERSION"
 }
 
 # main()
@@ -30,7 +34,6 @@ F_PERM="$5"
 
 test -d "$DIR" || { echo "ERROR: $DIR does not exist" && exit 1; }
 
-find "$DIR" -type d ! -perm "${D_PERM}" -print0 | xargs -r0 chmod "${D_PERM}"
-find "$DIR" -type f ! -perm "${F_PERM}" -print0 | xargs -r0 chmod "${F_PERM}"
-find "$DIR" ! -user "${F_USER}" -o ! -group "${F_GROUP}" -print0 | xargs -r0 chown "${F_USER}:${F_GROUP}"
-
+find "$DIR" -type d ! -perm "${D_PERM}" -exec chmod "${D_PERM}" {} +
+find "$DIR" -type f ! -perm "${F_PERM}" -exec chmod "${F_PERM}" {} +
+find "$DIR" \( ! -user "${F_USER}" -o ! -group "${F_GROUP}" \) -exec chown "${F_USER}:${F_GROUP}" {} +
