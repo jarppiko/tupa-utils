@@ -1,13 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## Helper for par2 command
 
+VERSION="0.1.0"
+
 ## Functions
-
-TUPA_UTILS="$(dirname "${0}")/tupa-utils"
-
-# shellcheck source=./tupa-utils
-{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
 
 help() {
 	echo "par2 helper to create and update parchive2 redundancy files"
@@ -19,16 +16,22 @@ help() {
 	echo -e "\t-l\tList status by DIR"
 	echo -e "\t-u\tUpdate PAR2ARCHIVE in DIR"
 	echo -e "\t-c\tCreate PAR2ARCHIVE for DIR"
+	echo -e "\t-v\tVerify PAR2ARCHIVE in DIR"
 
+	echo "Version: ${VERSION}"
 	exit 0
+}
+
+error() {
+        MSG="${1}"
+        echo "Error: ${MSG}"
+        exit 1
 }
 
 
 par2file() {
-#	local DIR="${1}"
 	local PAR2FILE
 	PAR2FILE="$(find . -maxdepth 1 -type f -iname '*.par2' | sort  | head -n 1)"
-#	PAR2FILE="${PAR2FILE::-1}"
 	echo "${PAR2FILE}"
 }
 
@@ -43,6 +46,52 @@ list_files() {
 }
 
 
+par2tool_list() {
+	# list status of dir
+	local DIR
+	local PAR2FILE
+	DIR="$(pwd)"
+	PAR2FILE="$(par2file "${DIR}")"
+	if [ ! -f "${PAR2FILE}" ]; then
+		if (( $(list_files | wc -l) > 0 )); then
+			echo "${DIR}: ERROR: No par2 file"			
+		fi
+	else
+		 if (( $(list_newer "${PAR2FILE}" | wc -l) > 0 )); then
+            echo "${DIR}: ERROR: Update needed"
+			if [ -z "${QUIET}" ]; then
+				list_newer "${PAR2FILE}"
+			fi
+         else
+			echo "${DIR}: OK"
+		fi
+	fi # if PAR2FILE exists
+} # par2tool_list()
+
+
+par2tool_verify() {
+	# verify dir
+	local DIR
+	local PAR2FILE
+	DIR="$(pwd)"
+	PAR2FILE="$(par2file "${DIR}")"
+	if [ ! -f "${PAR2FILE}" ]; then
+		if (( $(list_files | wc -l) > 0 )); then
+			error "${DIR}: No par2 file"			
+		fi
+	else
+		 if (( $(list_newer "${PAR2FILE}" | wc -l) > 0 )); then
+            error "${DIR}: Update needed"			
+         else
+			par2verify -q "${PAR2FILE}" | grep -vE '(- found\.$|^Loading)'
+			if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+				error "${DIR}: par2verify failed"
+			fi
+		fi
+	fi # if PAR2FILE exists
+} # par2tool_verify()
+
+
 par2tool_update() {
 	# list status of dir
 	local DIR
@@ -51,27 +100,16 @@ par2tool_update() {
 	PAR2FILE="$(par2file "${DIR}")"
 	if [ ! -f "${PAR2FILE}" ]; then
 		if (( $(list_files | wc -l) > 0 )); then
-			if [ "${ACTION}" == "update" ]; then
-				par2tool_create
-			else
-				echo "${DIR}: FAILED: No par2 file"
-			fi # if ACTION
+			par2tool_create
 		fi
 	else
-		 if (( $(list_newer "${PAR2FILE}" | wc -l) > 0 )); then
-            if [ "${ACTION}" == "update" ]; then
-				 par2tool_create
-			else
-				echo "${DIR}: FAILED: Update needed"
-				if [ -z "${QUIET}" ]; then
-					list_newer "${PAR2FILE}"
-				fi
-			fi # if ACTION
-         else
+		if (( $(list_newer "${PAR2FILE}" | wc -l) > 0 )); then
+            par2tool_create
+        else
 			echo "${DIR}: OK"
 		fi
 	fi # if PAR2FILE exists
-} # par2tool_list()
+} # par2tool_update()
 
 
 
@@ -80,10 +118,10 @@ par2tool_create() {
 	DIR="$(pwd)"
 	if [ -z "${RECURSIVE}" ]; then
 		find . -maxdepth 1 -type f -name "*.par2" -delete
-		par2create -q -m500 -u "-r${RATIO}" "$(basename "${DIR}").par2" ./*
+		par2create -q -u "-r${RATIO}" "$(basename "${DIR}").par2" ./*
 	else
 		find . -type f -name "*.par2" -delete
-		par2create -q -m500 -u "-r${RATIO}" -R "$(basename "${DIR}").par2" ./*
+		par2create -q -u "-r${RATIO}" -R "$(basename "${DIR}").par2" ./*
 	fi #  if RECURSIVE
 }
 
@@ -95,7 +133,7 @@ ACTION="list"
 QUIET=""
 
 # shellcheck disable=SC2220
-while getopts 'hqcluRr:' option
+while getopts 'hqcluvRr:' option
 do
     case "$option" in
     h)
@@ -119,6 +157,9 @@ do
     u)
          ACTION='update'
          ;;
+    v)
+         ACTION='verify'
+         ;;
     esac
 done
 
@@ -135,12 +176,11 @@ if (( ${#DIRS[@]} == 0 )); then
 fi
 
 for dir in "${DIRS[@]}"; do
-#	echo "DEBUG: ${dir}"
 	pushd "${dir}" > /dev/null || continue
 	echo "$dir:"
 	case "${ACTION}" in
 	list)
-		par2tool_update "${dir}"
+		par2tool_list "${dir}"
 		;;
 	create)
 		par2tool_create "${dir}"
@@ -148,11 +188,12 @@ for dir in "${DIRS[@]}"; do
 	update)
 		par2tool_update "${dir}"
 		;;
+	verify)
+		par2tool_verify "${dir}"
+		;;
 	*)
 		error "unknown action ${ACTION}"
 		;;
 	esac
 	popd  > /dev/null || error "Could not return to previous dir"
 done
-
-
