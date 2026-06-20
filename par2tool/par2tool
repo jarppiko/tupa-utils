@@ -18,7 +18,7 @@ help() {
 	echo -e "\t-c\tCreate PAR2ARCHIVE for DIR"
 	echo -e "\t-v\tVerify PAR2ARCHIVE in DIR"
 
-	echo "Version: ${VERSION}"
+	echo -e "Version: ${VERSION}"
 	exit 0
 }
 
