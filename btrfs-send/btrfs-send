@@ -1,6 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # send btrfs subvols to another btrfs filesystem
+
+
+VERSION="2.0.1"
+
 #
 ## Version 2.0 specs
 # - user getopts()
@@ -9,9 +13,6 @@
 # v2.0: syntax OK and tests passed
 
 ## Functions
-TUPA_UTILS="$(dirname "${0}")/tupa-utils"
-# shellcheck source=./tupa-utils
-{ [ -f "${TUPA_UTILS}" ] && source "${TUPA_UTILS}";} || exit 1
 
 help() {
 	echo "btrfs send-receive subvolumes using parent volumes"
@@ -22,6 +23,11 @@ help() {
 	exit 0
 }
 
+error() {
+        MSG="${1}"
+        echo "Error: ${MSG}"
+        exit 1
+}
 
 ## Params
 FULL=""
