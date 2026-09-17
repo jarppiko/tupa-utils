@@ -2,7 +2,7 @@
 
 # send btrfs subvols to another btrfs filesystem
 
-
+# shellcheck disable=SC2034
 VERSION="2.0.1"
 
 #
