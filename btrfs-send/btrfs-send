@@ -3,8 +3,9 @@
 # send btrfs subvols to another btrfs filesystem
 
 # shellcheck disable=SC2034
-VERSION="2.0.2"
+VERSION="2.0.1"
 
+#
 ## Version 2.0 specs
 # - user getopts()
 # - separate params for snaphot, old snapshot, backup dir, renaming, date postfix
@@ -15,7 +16,7 @@ VERSION="2.0.2"
 
 help() {
 	echo "btrfs send-receive subvolumes using parent volumes"
-	echo "Usage: btrfs-send [-hf] [TARGET_DIR] [SNAPSHOT1 ..]"
+	echo "Usage: $(basename "${0}") [-hf] [TARGET_DIR] [SNAPSHOT1 ..]"
 	echo -e "\t-h\tDisplay help"
 	echo -e "\t-f\tDo full send-receive for the first snapshot"
 
