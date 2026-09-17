@@ -3,7 +3,7 @@
 # send btrfs subvols to another btrfs filesystem
 
 # shellcheck disable=SC2034
-VERSION="2.0.2"
+VERSION="2.1.1"
 
 ## Version 2.0 specs
 # - user getopts()
@@ -15,9 +15,12 @@ VERSION="2.0.2"
 
 help() {
 	echo "btrfs send-receive subvolumes using parent volumes"
-	echo "Usage: btrfs-send [-hf] [TARGET_DIR] [SNAPSHOT1 ..]"
-	echo -e "\t-h\tDisplay help"
-	echo -e "\t-f\tDo full send-receive for the first snapshot"
+	echo "Usage: btrfs-send [-hqvf] [-p PROTO] [TARGET_DIR] [SNAPSHOT1 ..]"
+	echo -e "\t-h\t\tDisplay help"
+	echo -e "\t-q\t\tQuiet operations"
+	echo -e "\t-v\t\tVerbose operations"
+	echo -e "\t-p PROTO\tProtocol version (btrfs send --proto N)"
+	echo -e "\t-f\t\tDo full send-receive for the first snapshot"
 
 	exit 0
 }
@@ -30,17 +33,29 @@ error() {
 
 ## Params
 FULL=""
+VERBOSE=""
+PROTO=0
 
 # shellcheck disable=SC2220
-while getopts 'hf' option
+while getopts 'hqvfp:' option
 do
     case "$option" in
     h)
          help
          ;;
+    q)
+         VERBOSE='-q'
+         ;;
+    v)
+         VERBOSE='-v'
+         ;;
     f)
          FULL='yes'
          ;;
+    p)
+         PROTO="${OPTARG}"
+         ;;
+
     esac
 done
 
@@ -64,10 +79,10 @@ if [ -n "${FULL}" ]; then
         	error "Too few arguments"
         fi
 	echo "btrfs (full) send/receive: ${ARGS[0]} => ${TARGET_DIR}"
-        btrfs send -v "${ARGS[0]}" | btrfs receive "${TARGET_DIR}"
+        btrfs send "${VERBOSE}" --proto "${PROTO}" "${ARGS[0]}" | btrfs receive "${VERBOSE}" "${TARGET_DIR}"
 fi
 
-while /bin/true; do
+while true; do
 	LEN=${#ARGS[@]}
 	# shellcheck disable=SC2004
 	if (( $LEN <= 1 )); then
@@ -75,7 +90,7 @@ while /bin/true; do
 		break
 	fi
 	echo "btrfs (partial) send/receive: (parent=${ARGS[0]}) ${ARGS[1]} => ${TARGET_DIR}"
-	btrfs send -v -p "${ARGS[0]}" "${ARGS[1]}" | btrfs receive "${TARGET_DIR}"
+	btrfs send "${VERBOSE}" --proto "${PROTO}" -p "${ARGS[0]}" "${ARGS[1]}" | btrfs receive "${VERBOSE}" "${TARGET_DIR}"
 	unset 'ARGS[0]'
 	ARGS=( "${ARGS[@]}")
 done
