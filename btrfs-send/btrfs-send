@@ -3,7 +3,7 @@
 # send btrfs subvols to another btrfs filesystem
 
 # shellcheck disable=SC2034
-VERSION="2.1.1"
+VERSION="2.1.2"
 
 ## Version 2.0 specs
 # - user getopts()
@@ -32,8 +32,8 @@ error() {
 }
 
 ## Params
+VERBOSE=()
 FULL=""
-VERBOSE=""
 PROTO=0
 
 # shellcheck disable=SC2220
@@ -44,10 +44,10 @@ do
          help
          ;;
     q)
-         VERBOSE='-q'
+         VERBOSE=(-q)
          ;;
     v)
-         VERBOSE='-v'
+         VERBOSE=(-v)
          ;;
     f)
          FULL='yes'
@@ -79,7 +79,7 @@ if [ -n "${FULL}" ]; then
         	error "Too few arguments"
         fi
 	echo "btrfs (full) send/receive: ${ARGS[0]} => ${TARGET_DIR}"
-        btrfs send "${VERBOSE}" --proto "${PROTO}" "${ARGS[0]}" | btrfs receive "${VERBOSE}" "${TARGET_DIR}"
+        btrfs "${VERBOSE[@]}" send --proto "${PROTO}" "${ARGS[0]}" | btrfs "${VERBOSE[@]}" receive "${TARGET_DIR}"
 fi
 
 while true; do
@@ -90,7 +90,7 @@ while true; do
 		break
 	fi
 	echo "btrfs (partial) send/receive: (parent=${ARGS[0]}) ${ARGS[1]} => ${TARGET_DIR}"
-	btrfs send "${VERBOSE}" --proto "${PROTO}" -p "${ARGS[0]}" "${ARGS[1]}" | btrfs receive "${VERBOSE}" "${TARGET_DIR}"
+	btrfs "${VERBOSE[@]}" send --proto "${PROTO}" -p "${ARGS[0]}" "${ARGS[1]}" | btrfs "${VERBOSE[@]}" receive "${TARGET_DIR}"
 	unset 'ARGS[0]'
 	ARGS=( "${ARGS[@]}")
 done
