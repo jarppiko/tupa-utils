@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.2"
+VERSION="0.3.0"
 
 ## Params
 
@@ -21,7 +21,6 @@ TARGET_DIR="${MOUNT_POINT}"
 STAMP="last_backup"
 EXCLUDE_FILE=".exclude.rsync"
 VERBOSE=()
-HELP=""
 UMOUNT=""
 
 ## Functions
@@ -34,7 +33,6 @@ help() {
     echo -e "\t-q\t\tQuiet operations"
     echo -e "\t-v\t\tVerbose operations"
     echo -e "\t-u\t\tUmount backup disk after backup"
-    echo -e "\t-c CONFIG\tConfig file (default $HOME/.config/backup-data)"
     echo -e "\t-d DEVICE\tDevice to mount)"
     echo -e "\t-m MOUNT_POINT\tMount point for DEVICE (default: ${MOUNT_POINT})"
     echo -e "\t-t TARGET_DIR\tTarget dir base for the backups (default: ${TARGET_DIR})"
@@ -51,12 +49,18 @@ error() {
 }
 
 
+# Read config file
+if [ -f "${CONFIG}" ]; then
+  # shellcheck disable=SC1090
+  source "${CONFIG}"
+fi
+
 # shellcheck disable=SC2220
 while getopts 'hqvuc:m:t:' option
 do
   case "$option" in
     h)
-      HELP="yes"
+      help
       ;;
     q)
       VERBOSE=(-q)
@@ -67,8 +71,8 @@ do
     u)
       UMOUNT="yes"
       ;;
-    c)
-      CONFIG="${OPTARG}"
+    d)
+      DEVICE="${OPTARG}"
       ;;
     m)
       MOUNT_POINT="${OPTARG}"
@@ -78,16 +82,6 @@ do
       ;;
   esac
 done
-
-# Read config file
-if [ -f "${CONFIG}" ]; then
-  # shellcheck disable=SC1090
-  source "${CONFIG}"
-fi
-
-if [ -n "${HELP}" ]; then
-  help
-fi
 
 # target/source dirs
 shift $((OPTIND-1))
