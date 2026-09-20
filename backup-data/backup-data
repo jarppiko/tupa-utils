@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.1"
+VERSION="0.2.2"
 
 ## Params
 
@@ -94,7 +94,7 @@ shift $((OPTIND-1))
 SOURCES=( "$@" )
 
 if (( ${#SOURCES[@]} < 1 )); then
-  echo "ERROR: Too few parameters"
+  echo "ERROR: No SOURCE(s) given"
   help
 fi
 
@@ -153,10 +153,10 @@ umount_backup() {
     } 2>&1 | tee -a "${LOG}"
     if [ -n "${IS_LUKS}" ]; then
       {
-        echo -n "Doing luksSuspend ... "
-        cryptsetup luksSuspend "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
-        echo -n "Doing luksClose  ... "
-        cryptsetup luksClose "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
+        [[ "${VERBOSE[*]}" == "-v" ]] && echo "Doing luksSuspend ... "
+        cryptsetup "${VERBOSE[@]}" luksSuspend "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
+        [[ "${VERBOSE[*]}" == "-v" ]] && echo "Doing luksClose  ... "
+        cryptsetup "${VERBOSE[@]}" luksClose "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
       } 2>&1 | tee -a "${LOG}"
     fi
   else
@@ -196,7 +196,7 @@ do_btrfs_snapshot() {
       mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIME}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed"
     fi
 
-    btrfs subvolume snapshot "${SUBVOL}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
+    btrfs "${VERBOSE[@]}" subvolume snapshot "${SUBVOL}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
   else
     echo "Cannot find snapshot base dir: ${SNAPSHOT_BASE}" > /dev/stderr
     exit 5
@@ -256,16 +256,16 @@ do_backup() {
 
       if is_btrfs "${DST_FULL}"; then
         do_btrfs_snapshot "${DST_FULL}"
-        echo "nice rsync -av" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
-        nice rsync -av "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+        echo "nice rsync -a" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+        nice rsync -a "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
 
         touch_stamp "$SRC"
         #sync
       else
         local RSYNC_BACKUP_DIR
         RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${SNAPSHOTS}/${DST}/${DATE}/"
-        echo "nice rsync -abv" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
-        nice rsync -abv "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
+        echo "nice rsync -ab" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
+        nice rsync -ab "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         touch_stamp "$SRC"
         #sync
       fi
