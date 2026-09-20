@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 
 ## Params
 
@@ -120,7 +120,6 @@ check_backup_mount() {
 
 
 mount_backup_disk() {
-  echo "mount_backup_disk(): starting"
   # detect if DEVICE contains a partion table
   if blkid --match-token PTTYPE="gpt" "${DEVICE}"; then
     DEVICE="${DEVICE}${PARTITION}"
@@ -141,7 +140,6 @@ mount_backup_disk() {
       echo "Device mounted successfully"
     }  2>&1 | tee -a "${LOG}"
   fi
-  echo "mount_backup_disk(): returning"
 }
 
 umount_backup() {
