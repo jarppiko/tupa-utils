@@ -56,7 +56,7 @@ if [ -f "${CONFIG}" ]; then
 fi
 
 # shellcheck disable=SC2220
-while getopts 'hqvuc:m:t:' option
+while getopts 'hqvud:m:t:' option
 do
   case "$option" in
     h)
