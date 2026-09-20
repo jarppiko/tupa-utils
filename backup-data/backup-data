@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 
 ## Params
 
@@ -22,17 +22,18 @@ STAMP="last_backup"
 EXCLUDE_FILE=".exclude.rsync"
 VERBOSE=()
 HELP=""
-
+UMOUNT=""
 
 ## Functions
 
 help() {
-    echo "backup-data [-h] [-v|q] [-c CONFIG] [-d DEVICE] [-m MOUNT_POINT] [-t TARGET_DIR] SOURCE [SOURCE1..]"
+    echo "backup-data [-hu] [-v|q] [-c CONFIG] [-d DEVICE] [-m MOUNT_POINT] [-t TARGET_DIR] SOURCE [SOURCE1..]"
     printf "\nSynchronizes (rsync) SOURCE.. to TARGET_DIR/current and rotates snapshots.\n"
     echo "Uses Btrfs snapshots were available."
     echo -e "\t-h\t\tDisplay help"
     echo -e "\t-q\t\tQuiet operations"
     echo -e "\t-v\t\tVerbose operations"
+    echo -e "\t-u\t\tUmount backup disk after backup"
     echo -e "\t-c CONFIG\tConfig file (default $HOME/.config/backup-data)"
     echo -e "\t-d DEVICE\tDevice to mount)"
     echo -e "\t-m MOUNT_POINT\tMount point for DEVICE (default: ${MOUNT_POINT})"
@@ -44,35 +45,35 @@ help() {
 }
 
 error() {
-        MSG="${1}"
-        echo "Error: ${MSG}"
-        exit 1
+  MSG="${1}"
+  echo "Error: ${MSG}"
+  exit 1
 }
 
 
 # shellcheck disable=SC2220
 while getopts 'hqvc:m:t:' option
 do
-    case "$option" in
+  case "$option" in
     h)
-         HELP="yes"
-         ;;
+      HELP="yes"
+      ;;
     q)
-         VERBOSE=(-q)
-         ;;
+      VERBOSE=(-q)
+      ;;
     v)
-         VERBOSE=(-v)
-         ;;
+      VERBOSE=(-v)
+      ;;
     c)
-         CONFIG="${OPTARG}"
-         ;;
+      CONFIG="${OPTARG}"
+      ;;
     m)
-         MOUNT_POINT="${OPTARG}"
-         ;;
+      MOUNT_POINT="${OPTARG}"
+      ;;
     t)
-         TARGET_DIR="${OPTARG}"
-         ;;
-    esac
+      TARGET_DIR="${OPTARG}"
+      ;;
+  esac
 done
 
 # Read config file
@@ -90,8 +91,8 @@ shift $((OPTIND-1))
 SOURCES=( "$@" )
 
 if (( ${#SOURCES[@]} < 1 )); then
-    echo "ERROR: Too few parameters"
-    help
+  echo "ERROR: Too few parameters"
+  help
 fi
 
 ################################### Subs ##############################################
@@ -99,19 +100,19 @@ fi
 
 ## Sleep 3 seconds and print "wait dots"
 do_sleep() {
-	echo -n "$1 "  | tee -a "${LOG}"
+  echo -n "$1 "  | tee -a "${LOG}"
   # shellcheck disable=SC2034
-	for i in 1 2 3 ; do
-        	sleep 2s
-        	echo -n "."  | tee -a "${LOG}"
-	done
-	echo | tee -a "${LOG}"
+  for i in 1 2 3 ; do
+    sleep 2s
+    echo -n "."  | tee -a "${LOG}"
+  done
+  echo | tee -a "${LOG}"
 }
 
 check_backup_mount() {
   mountpoint -q "$1" && return 0
-  >&2	echo "Backup disk ${MOUNT_POINT} is not mounted yet"
-	return 1
+  >&2 echo "Backup disk ${MOUNT_POINT} is not mounted yet"
+  return 1
 }
 
 
@@ -141,12 +142,12 @@ mount_backup_disk() {
 }
 
 umount_backup() {
-	# sync
+  # sync
 
   if mountpoint "${MOUNT_POINT}"; then
     {
-    	do_sleep "Unmounting now"
-    	umount "${MOUNT_POINT}"
+      do_sleep "Unmounting now"
+      umount "${MOUNT_POINT}"
       echo "  OK"
     } 2>&1 | tee -a "${LOG}"
     if [ -n "${IS_LUKS}" ]; then
@@ -163,42 +164,42 @@ umount_backup() {
 }
 
 print_stamp() {
-	local STAMP
+  local STAMP
   STAMP="$(echo "$1" | tr / _ | tr \  _ | sed 's/^_//')"
   STAMP="${TARGET_DIR}/${STAMP}"
 
-	if [[ -f "${STAMP}" ]]; then
-		echo "Last backup: $(cat "${STAMP}")" | tee -a "${LOG}"
-	fi
+  if [[ -f "${STAMP}" ]]; then
+    echo "Last backup: $(cat "${STAMP}")" | tee -a "${LOG}"
+  fi
 }
 
 touch_stamp() {
-	local STAMP
+  local STAMP
   STAMP="$(echo "$1" | tr / _ | tr \  _ | sed 's/^_//')"
   STAMP="${TARGET_DIR}/${STAMP}"
 
-	date > "${STAMP}"
+  date > "${STAMP}"
 }
 
 do_btrfs_snapshot() {
-	local SUBVOL
-	local SNAPSHOT_BASE
+  local SUBVOL
+  local SNAPSHOT_BASE
   SUBVOL="$1"
   SNAPSHOT_BASE="${TARGET_DIR}/${SNAPSHOTS}/$(basename "${SUBVOL}")"
 
-	echo "Creating a snapshot of $SUBVOL" | tee -a "${LOG}"
-	if [[ -d "${SNAPSHOT_BASE}" ]]; then
-		SNAPSHOT_NAME="@snapshot_$(basename "${SUBVOL}")_${DATE}"
-		if [[ -d "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" ]]; then
-			TIME=$(date +%H%M%S)
-			mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIME}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed"
-		fi
+  echo "Creating a snapshot of $SUBVOL" | tee -a "${LOG}"
+  if [[ -d "${SNAPSHOT_BASE}" ]]; then
+    SNAPSHOT_NAME="@snapshot_$(basename "${SUBVOL}")_${DATE}"
+    if [[ -d "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" ]]; then
+      TIME=$(date +%H%M%S)
+      mv "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}_${TIME}" && echo "Old snapshot '${SNAPSHOT_BASE}/${SNAPSHOT_NAME}' renamed"
+    fi
 
-		btrfs subvolume snapshot "${SUBVOL}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
-	else
-		echo "Cannot find snapshot base dir: ${SNAPSHOT_BASE}" > /dev/stderr
-		exit 5
-	fi
+    btrfs subvolume snapshot "${SUBVOL}" "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" || echo "Error in creating btrfs snapshot $SNAPSHOT_NAME"  > /dev/stderr
+  else
+    echo "Cannot find snapshot base dir: ${SNAPSHOT_BASE}" > /dev/stderr
+    exit 5
+  fi
 }
 
 
@@ -210,79 +211,79 @@ is_btrfs() {
 # find and verify CHKSUM files
 # DOES NOT WORK IS SPACES IN DIR NAMES
 #verify_checksums() {
-#	local DIR="$1"
-#	echo "------  $DIR CHECKSUMS ------------------" | tee -a "${LOG}"
-#	for chksum in $(find "$DIR" -name ${CHKSUM} -print0); do
-#		echo $chksum | tee -a "${LOG}"
-#		exit
-#		pushd "$(dirname "$chksum")"
-#		cfv --progress no -f $CHKSUM | tee -a "${LOG}"
-#		popd
-#	done
-#	echo "------  $DIR CHECKSUMS END --------------" | tee -a "${LOG}"
+# local DIR="$1"
+# echo "------  $DIR CHECKSUMS ------------------" | tee -a "${LOG}"
+# for chksum in $(find "$DIR" -name ${CHKSUM} -print0); do
+#   echo $chksum | tee -a "${LOG}"
+#   exit
+#   pushd "$(dirname "$chksum")"
+#   cfv --progress no -f $CHKSUM | tee -a "${LOG}"
+#   popd
+# done
+# echo "------  $DIR CHECKSUMS END --------------" | tee -a "${LOG}"
 #}
 
 
 do_backup() {
-	local SRC
+  local SRC
   local BASENAME
-	local DST
-	local DST_FULL
+  local DST
+  local DST_FULL
 
   SRC="$1"
   BASENAME="$(basename "${SRC}")"
-	DST="${2:-$BASENAME}"
-	DST_FULL="${TARGET_DIR}/${CURRENT}/${DST}"
+  DST="${2:-$BASENAME}"
+  DST_FULL="${TARGET_DIR}/${CURRENT}/${DST}"
 
-	echo "--------------------------------------------------------"	 | tee -a "${LOG}"
-	echo "SRC: $SRC"  | tee -a "${LOG}"
-	echo "DST: ${DST_FULL}"  | tee -a "${LOG}"
-	echo "--------------------------------------------------------"	 | tee -a "${LOG}"
+  echo "--------------------------------------------------------"  | tee -a "${LOG}"
+  echo "SRC: $SRC"  | tee -a "${LOG}"
+  echo "DST: ${DST_FULL}"  | tee -a "${LOG}"
+  echo "--------------------------------------------------------"  | tee -a "${LOG}"
 
-	# LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE}
-	# BACKUP_LOG="${LOG}_$(basename $SRC)_${DATE}.log"
+  # LOG=$(echo -n $SRC | tr / _ | sed s/^_//).log_${DATE}
+  # BACKUP_LOG="${LOG}_$(basename $SRC)_${DATE}.log"
 
-	if [[ -d "${DST_FULL}" ]]; then
+  if [[ -d "${DST_FULL}" ]]; then
     {
-		  do_sleep "Starting backing up ${SRC} to ${DST_FULL}"
-		  print_stamp "$SRC"
-  		EXCLUDE=()
+      do_sleep "Starting backing up ${SRC} to ${DST_FULL}"
+      print_stamp "$SRC"
+      EXCLUDE=()
 
-  	  if [[ -f "${SRC}/${EXCLUDE_FILE}" ]]; then
-			  EXCLUDE=( "--exclude-from=${SRC}/${EXCLUDE_FILE}" )
-		  fi
+      if [[ -f "${SRC}/${EXCLUDE_FILE}" ]]; then
+        EXCLUDE=( "--exclude-from=${SRC}/${EXCLUDE_FILE}" )
+      fi
 
-  		if  is_btrfs  "${DST_FULL}"; then
-	  		do_btrfs_snapshot "${DST_FULL}"
-		  	echo "nice rsync -av" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+      if  is_btrfs  "${DST_FULL}"; then
+        do_btrfs_snapshot "${DST_FULL}"
+        echo "nice rsync -av" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
         nice rsync -av "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
 
-			  touch_stamp "$SRC"
-			  #sync
-		  else
-			  local RSYNC_BACKUP_DIR
+        touch_stamp "$SRC"
+        #sync
+      else
+        local RSYNC_BACKUP_DIR
         RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${SNAPSHOTS}/${DST}/${DATE}/"
         echo "nice rsync -abv" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         nice rsync -abv "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         touch_stamp "$SRC"
         #sync
-		  fi
+      fi
     } 2>&1 | tee -a "${LOG}"
 
-# BROKEN		verify_checksums "${DST_FULL}"
-	else
-		echo "Cannot find ${DST_FULL}. Directory does not exist."  | tee -a "${LOG}"
+# BROKEN    verify_checksums "${DST_FULL}"
+  else
+    echo "Cannot find ${DST_FULL}. Directory does not exist."  | tee -a "${LOG}"
     exit 1
-	fi
-	echo "--------------------------------------------------------"	 | tee -a "${LOG}"
+  fi
+  echo "--------------------------------------------------------"  | tee -a "${LOG}"
 }
 
 check_disk_space() {
-	DU=$(df --output=pcent "${MOUNT_POINT}" | tail -1 | tr -d ' %')
+  DU=$(df --output=pcent "${MOUNT_POINT}" | tail -1 | tr -d ' %')
   echo "${DU}% is backup disk (${MOUNT_POINT}) is in use" | tee -a "${LOG}"
   if  (( DU > 90 )); then
     echo "Disk is too full, pls create space" | tee -a "${LOG}"
-	  exit 3
+    exit 3
   fi
 }
 
@@ -294,5 +295,4 @@ fi
 
 for SRC in "${SOURCES[@]}"; do
   do_backup "${SRC}"
-
 done
