@@ -52,7 +52,7 @@ error() {
 
 
 # shellcheck disable=SC2220
-while getopts 'hqvc:m:t:' option
+while getopts 'hqvuc:m:t:' option
 do
   case "$option" in
     h)
@@ -63,6 +63,9 @@ do
       ;;
     v)
       VERBOSE=(-v)
+      ;;
+    u)
+      UMOUNT="yes"
       ;;
     c)
       CONFIG="${OPTARG}"
@@ -253,7 +256,7 @@ do_backup() {
         EXCLUDE=( "--exclude-from=${SRC}/${EXCLUDE_FILE}" )
       fi
 
-      if  is_btrfs  "${DST_FULL}"; then
+      if is_btrfs "${DST_FULL}"; then
         do_btrfs_snapshot "${DST_FULL}"
         echo "nice rsync -av" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
         nice rsync -av "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
@@ -296,3 +299,7 @@ fi
 for SRC in "${SOURCES[@]}"; do
   do_backup "${SRC}"
 done
+
+if [ -n "${UMOUNT}" ]; then
+  umount_backup
+fi
