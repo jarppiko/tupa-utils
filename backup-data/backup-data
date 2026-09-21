@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.2"
+VERSION="0.3.3"
 
 ## Params
 
@@ -264,16 +264,16 @@ do_backup() {
 
       if is_btrfs "${DST_FULL}"; then
         do_btrfs_snapshot "${DST_FULL}"
-        not_quiet && echo "nice rsync -a" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
-        nice rsync -a "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+        not_quiet && echo "rsync -a" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+        rsync -a "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
 
         touch_stamp "$SRC"
         #sync
       else
         local RSYNC_BACKUP_DIR
         RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${SNAPSHOTS}/${DST}/${DATE}/"
-        not_quiet &&  echo "nice rsync -ab" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
-        nice rsync -ab "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
+        not_quiet &&  echo "rsync -ab" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
+        rsync -ab "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         touch_stamp "$SRC"
         #sync
       fi
