@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.1"
+VERSION="0.3.2"
 
 ## Params
 
@@ -42,6 +42,14 @@ help() {
     exit 0
 }
 
+is_verbose() {
+  [[ "${VERBOSE[*]}" == "-v" ]]
+}
+
+not_quiet() {
+  [[ "${VERBOSE[*]}" != "-q" ]]
+}
+
 error() {
   MSG="${1}"
   echo "Error: ${MSG}"
@@ -53,6 +61,11 @@ error() {
 if [ -f "${CONFIG}" ]; then
   # shellcheck disable=SC1090
   source "${CONFIG}"
+fi
+
+if [ -z "${DEVICE}" ]; then
+  >&2 echo "Error: DEVICE to backup is not set"
+  help
 fi
 
 # shellcheck disable=SC2220
@@ -88,7 +101,7 @@ shift $((OPTIND-1))
 SOURCES=( "$@" )
 
 if (( ${#SOURCES[@]} < 1 )); then
-  echo "ERROR: No SOURCE(s) given"
+  >&2 echo "ERROR: No SOURCE(s) given"
   help
 fi
 
@@ -97,11 +110,11 @@ fi
 
 ## Sleep 3 seconds and print "wait dots"
 do_sleep() {
-  echo -n "$1 "  | tee -a "${LOG}"
+  not_quiet && echo -n "$1 "  | tee -a "${LOG}"
   # shellcheck disable=SC2034
   for i in 1 2 3 ; do
     sleep 2s
-    echo -n "."  | tee -a "${LOG}"
+    not_quiet && echo -n "."  | tee -a "${LOG}"
   done
   echo | tee -a "${LOG}"
 }
@@ -122,16 +135,17 @@ mount_backup_disk() {
   if cryptsetup isLuks "${DEVICE}"; then
     IS_LUKS="yes"
     {
+      not_quiet && echo "Opening LUKS device ${DEVICE} as ${LUKS_DEV}"
       cryptsetup "${VERBOSE[@]}" luksOpen "${DEVICE}" "${LUKS_DEV}"
-      echo "Mounting ${DEVICE} to ${MOUNT_POINT}"
+      not_quiet && echo "Mounting ${DEVICE} to ${MOUNT_POINT}"
       mount -o "${MOUNT_OPTS}" "/dev/mapper/${LUKS_DEV}" "${MOUNT_POINT}"
-      echo "Device mounted successfully"
+      not_quiet && echo "Device mounted successfully"
     } 2>&1 | tee -a "${LOG}"
   else
     {
-      echo "Mounting ${DEVICE} to ${MOUNT_POINT}"
+      not_quiet && echo "Mounting ${DEVICE} to ${MOUNT_POINT}"
       mount -o "${MOUNT_OPTS}" "${DEVICE}" "${MOUNT_POINT}"
-      echo "Device mounted successfully"
+      not_quiet && echo "Device mounted successfully"
     }  2>&1 | tee -a "${LOG}"
   fi
 }
@@ -141,15 +155,15 @@ umount_backup() {
 
   if mountpoint "${MOUNT_POINT}"; then
     {
-      do_sleep "Unmounting now"
+      not_quiet && do_sleep "Unmounting now"
       umount "${MOUNT_POINT}"
-      echo "  OK"
+      not_quiet && echo "  OK"
     } 2>&1 | tee -a "${LOG}"
     if [ -n "${IS_LUKS}" ]; then
       {
-        [[ "${VERBOSE[*]}" == "-v" ]] && echo "Doing luksSuspend ... "
+        not_quiet && echo "Doing luksSuspend ... "
         cryptsetup "${VERBOSE[@]}" luksSuspend "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
-        [[ "${VERBOSE[*]}" == "-v" ]] && echo "Doing luksClose  ... "
+        not_quiet && echo "Doing luksClose  ... "
         cryptsetup "${VERBOSE[@]}" luksClose "${LUKS_DEV}" && echo "OK" || echo "FAILED!!"
       } 2>&1 | tee -a "${LOG}"
     fi
@@ -164,7 +178,7 @@ print_stamp() {
   STAMP="${TARGET_DIR}/${STAMP}"
 
   if [[ -f "${STAMP}" ]]; then
-    echo "Last backup: $(cat "${STAMP}")" | tee -a "${LOG}"
+    not_quiet && echo "Last backup: $(cat "${STAMP}")" | tee -a "${LOG}"
   fi
 }
 
@@ -182,7 +196,7 @@ do_btrfs_snapshot() {
   SUBVOL="$1"
   SNAPSHOT_BASE="${TARGET_DIR}/${SNAPSHOTS}/$(basename "${SUBVOL}")"
 
-  echo "Creating a snapshot of $SUBVOL" | tee -a "${LOG}"
+  not_quiet && echo "Creating a snapshot of $SUBVOL" | tee -a "${LOG}"
   if [[ -d "${SNAPSHOT_BASE}" ]]; then
     SNAPSHOT_NAME="@snapshot_$(basename "${SUBVOL}")_${DATE}"
     if [[ -d "${SNAPSHOT_BASE}/${SNAPSHOT_NAME}" ]]; then
@@ -240,7 +254,7 @@ do_backup() {
 
   if [[ -d "${DST_FULL}" ]]; then
     {
-      do_sleep "Starting backing up ${SRC} to ${DST_FULL}"
+      not_quiet && do_sleep "Starting backing up ${SRC} to ${DST_FULL}"
       print_stamp "$SRC"
       EXCLUDE=()
 
@@ -250,7 +264,7 @@ do_backup() {
 
       if is_btrfs "${DST_FULL}"; then
         do_btrfs_snapshot "${DST_FULL}"
-        echo "nice rsync -a" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
+        not_quiet && echo "nice rsync -a" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
         nice rsync -a "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete "${SRC}/" "${DST_FULL}"
 
         touch_stamp "$SRC"
@@ -258,7 +272,7 @@ do_backup() {
       else
         local RSYNC_BACKUP_DIR
         RSYNC_BACKUP_DIR="${BACKUP_ROOT}/${SNAPSHOTS}/${DST}/${DATE}/"
-        echo "nice rsync -ab" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
+        not_quiet &&  echo "nice rsync -ab" "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         nice rsync -ab "${VERBOSE[@]}" "${EXCLUDE[@]}" --delete --backup-dir="${RSYNC_BACKUP_DIR}" "${SRC}/" "${DST_FULL}"
         touch_stamp "$SRC"
         #sync
@@ -275,7 +289,7 @@ do_backup() {
 
 check_disk_space() {
   DU=$(df --output=pcent "${MOUNT_POINT}" | tail -1 | tr -d ' %')
-  echo "${DU}% is backup disk (${MOUNT_POINT}) is in use" | tee -a "${LOG}"
+  not_quiet && echo "${DU}% is backup disk (${MOUNT_POINT}) is in use" | tee -a "${LOG}"
   if  (( DU > 90 )); then
     echo "Disk is too full, pls create space" | tee -a "${LOG}"
     exit 3
