@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.3"
+VERSION="0.4.0"
 
 ## Params
 
@@ -22,6 +22,7 @@ STAMP="last_backup"
 EXCLUDE_FILE=".exclude.rsync"
 VERBOSE=()
 UMOUNT=""
+KEYFILE=""
 
 ## Functions
 
@@ -33,7 +34,9 @@ help() {
     echo -e "\t-q\t\tQuiet operations"
     echo -e "\t-v\t\tVerbose operations"
     echo -e "\t-u\t\tUmount backup disk after backup"
+    echo -e "\t-l\t\tLeave backup disk mounted after backup"
     echo -e "\t-d DEVICE\tDevice to mount)"
+    echo -e "\t-k KEYFILE\tKeyfile to unlock an encrypted device (default: ${KEYFILE:-none})"
     echo -e "\t-m MOUNT_POINT\tMount point for DEVICE (default: ${MOUNT_POINT})"
     echo -e "\t-t TARGET_DIR\tTarget dir base for the backups (default: ${TARGET_DIR})"
 
@@ -69,7 +72,7 @@ if [ -z "${DEVICE}" ]; then
 fi
 
 # shellcheck disable=SC2220
-while getopts 'hqvud:m:t:' option
+while getopts 'hqlvud:k:m:t:' option
 do
   case "$option" in
     h)
@@ -84,8 +87,14 @@ do
     u)
       UMOUNT="yes"
       ;;
+    l)
+	  UMOUNT=""
+      ;;
     d)
       DEVICE="${OPTARG}"
+      ;;
+    k)
+      KEYFILE="${OPTARG}"
       ;;
     m)
       MOUNT_POINT="${OPTARG}"
@@ -135,8 +144,13 @@ mount_backup_disk() {
   if cryptsetup isLuks "${DEVICE}"; then
     IS_LUKS="yes"
     {
-      not_quiet && echo "Opening LUKS device ${DEVICE} as ${LUKS_DEV}"
-      cryptsetup "${VERBOSE[@]}" luksOpen "${DEVICE}" "${LUKS_DEV}"
+      if [ -n "${KEYFILE}" ]; then
+        not_quiet && echo "Opening LUKS device ${DEVICE} with key file ${KEYFILE} as ${LUKS_DEV}"
+        cryptsetup "${VERBOSE[@]}" luksOpen --key-file "${KEYFILE}" "${DEVICE}" "${LUKS_DEV}"
+      else
+        not_quiet && echo "Opening LUKS device ${DEVICE} as ${LUKS_DEV}"
+        cryptsetup "${VERBOSE[@]}" luksOpen "${DEVICE}" "${LUKS_DEV}"
+      fi
       not_quiet && echo "Mounting ${DEVICE} to ${MOUNT_POINT}"
       mount -o "${MOUNT_OPTS}" "/dev/mapper/${LUKS_DEV}" "${MOUNT_POINT}"
       not_quiet && echo "Device mounted successfully"
